@@ -242,7 +242,7 @@ function renderOzet(){
   el('ozet').innerHTML=`
   <div class="kart"><div class="et">Toplam Varlık</div><div class="deger">${isr(vt,'yesil')}</div></div>
   <div class="kart"><div class="et">Bu Ay (${AYLAR[BUAY]}) Kalan</div><div class="deger">${isr(buAy.kalan,buAy.kalan<0?'kirmizi':'yesil')}</div></div>
-  <div class="kart"><div class="et">${D.yil} Elde Kalan</div><div class="deger">${isr(yt.kalan,yt.kalan<0?'kirmizi':'yesil')}</div></div>
+  <div class="kart"><div class="et">${D.yil} Yıllık Elde Kalan</div><div class="deger">${isr(yt.kalan,yt.kalan<0?'kirmizi':'yesil')}</div></div>
   <div class="kart"><div class="et">Genel Birikim (Sonuç)</div><div class="deger">${isr(kum,'mavi')}</div></div>`;
 }
 
@@ -251,7 +251,7 @@ function renderTablo(){
   el('yilYazi').textContent=D.yil;
   const gelirler=D.items.filter(i=>i.tip==='gelir'),giderler=D.items.filter(i=>i.tip==='gider');
   const bas=it=>`<th class="${it.tip}"><span class="kolonbas"><span class="ad" data-adla="${it.id}" title="Yeniden adlandır">${esc(it.name)}</span><button class="sil" data-sil="${it.id}" aria-label="${esc(it.name)} kalemini sil">×</button></span></th>`;
-  let h='<thead><tr><th style="text-align:left">Ay</th>'+gelirler.map(bas).join('')+'<th class="hesap">GELİR</th>'+giderler.map(bas).join('')+'<th class="hesap">GİDER</th><th class="hesap">Kalan</th><th class="hesap">SONUÇ</th></tr></thead><tbody>';
+  let h='<thead><tr><th style="text-align:left">Ay</th>'+gelirler.map(bas).join('')+'<th class="hesap">GELİR</th>'+giderler.map(bas).join('')+'<th class="hesap">GİDER</th><th class="hesap">Elde Kalan</th><th class="hesap">SONUÇ</th></tr></thead><tbody>';
   for(let m=0;m<12;m++){
     const v=D.vals[D.yil+'-'+m]||{},a=ayToplam(D,D.yil,m),kum=kumulatif(D,D.yil,m);
     const hucre=it=>{const x=num(v[it.id]);return `<td><input class="hucre" inputmode="decimal" data-item="${it.id}" data-ay="${m}" value="${x?TL.format(x):''}" aria-label="${esc(it.name)} ${AYLAR[m]}"></td>`;};
