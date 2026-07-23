@@ -154,8 +154,8 @@ function ayToplam(d,yil,ay){
   for(const it of d.items){const x=cellSum(v[it.id]);if(it.tip==='gelir')gelir+=x;else gider+=x;}
   return {gelir,gider,kalan:gelir-gider};
 }
-function kumulatif(d,yil,ay){ /* açılış bakiyesi + eldeki nakit + tüm kayıtlı ayların (gizli dahil) seçili aya kadarki kalanı */
-  let t=num(d.acilis)+num(d.nakit);
+function kumulatif(d,yil,ay){ /* eldeki nakit + tüm kayıtlı ayların (gizli dahil) seçili aya kadarki kalanı */
+  let t=num(d.nakit);
   for(const k in d.vals){
     const p=k.split('-'),y=+p[0],m=+p[1];
     if(y<yil||(y===yil&&m<=ay))t+=ayToplam(d,y,m).kalan;
@@ -239,7 +239,7 @@ function varlikDeger(a){return num(a.adet)*num(a.fiyat);}
 function varlikToplam(d){return d.assets.reduce((t,a)=>t+varlikDeger(a),0);}
 
 const SEED={
-  tema:'dark',gerisi:1,ileri:12,acilis:0,nakit:0,fiyatZamani:null,
+  tema:'dark',gerisi:1,ileri:12,nakit:0,fiyatZamani:null,
   items:[
     {id:'maas',name:'Maaş',tip:'gelir',gun:15},
     {id:'sena',name:'Sena Maaş',tip:'gelir',gun:15},
@@ -304,7 +304,6 @@ if(typeof module!=='undefined')module.exports={AYLAR,AYKISA,OZEL,OZELAD,num,cell
       <div class="stepper"><span class="et">Geri</span><button id="geriEksi" aria-label="Geri ay azalt">−</button><b id="geriYazi"></b><button id="geriArti" aria-label="Geri ay arttır">+</button></div>
       <div class="stepper"><span class="et">İleri</span><button id="ileriEksi" aria-label="İleri ay azalt">−</button><b id="ileriYazi"></b><button id="ileriArti" aria-label="İleri ay arttır">+</button></div>
       <div class="stepper"><span class="et">Yakınlık</span><button id="ztEksi" aria-label="Uzaklaş">−</button><button id="ztArti" aria-label="Yakınlaş">+</button></div>
-      <div class="devir"><span class="et">Açılış bakiyesi</span><input id="devirGiris" inputmode="decimal" aria-label="Açılış bakiyesi"></div>
       <div class="devir"><span class="et">Eldeki nakit</span><input id="nakitGiris" inputmode="decimal" aria-label="Eldeki nakit"></div>
     </div>
     <p class="not ipucu" style="margin:0 0 10px">Hücreye dokun → tutar gir. Başlıktaki ⋯ menüsünden gün ata / taşı / adlandır / sil. Kaleme gün atayınca o güne ait "kalan" sütunu otomatik eklenir.</p>
@@ -339,7 +338,7 @@ const KAYIT='gelirGiderV3', UIK='butcemUI';
 let D=yukle();
 function yukle(){
   try{const s=localStorage.getItem(KAYIT);if(s){const d=JSON.parse(s);if(d.items&&d.vals&&d.assets){
-    if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.acilis==null)d.acilis=0; if(d.nakit==null)d.nakit=0;
+    if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.nakit==null)d.nakit=num(d.acilis)||0;
     kolonDuzelt(d);return d;}}}catch(e){}
   const d=JSON.parse(JSON.stringify(SEED));kolonDuzelt(d);return d;
 }
@@ -383,12 +382,12 @@ function zoomKur(kapId,tabloId,anahtar){
 /* ==== ÖZET ==== */
 function renderOzet(){
   const aylar=pencereAylar(D,BUYIL,BUAY),son=aylar[aylar.length-1]||{y:BUYIL,m:BUAY};
-  const buAy=ayToplam(D,BUYIL,BUAY),pt=pencereToplam(D,aylar),vt=varlikToplam(D),kum=kumulatif(D,son.y,son.m);
+  const buAy=ayToplam(D,BUYIL,BUAY),pt=pencereToplam(D,aylar),vt=varlikToplam(D)+num(D.nakit),kum=kumulatif(D,son.y,son.m);
   const buAyKalan=buAy.kalan+num(D.nakit);
   const isr=(n,c)=>`<span style="color:var(--${c})">${tl(n)}</span>`;
   const nakitNot=num(D.nakit)?`<span class="not" style="font-size:11px"> (nakit dâhil)</span>`:'';
   el('ozet').innerHTML=`
-  <div class="kart"><div class="et">Toplam Varlık</div><div class="deger">${isr(vt,'yesil')}</div></div>
+  <div class="kart"><div class="et">Toplam Varlık${nakitNot}</div><div class="deger">${isr(vt,'yesil')}</div></div>
   <div class="kart"><div class="et">Bu Ay (${AYLAR[BUAY]}) Kalan${nakitNot}</div><div class="deger">${isr(buAyKalan,buAyKalan<0?'kirmizi':'yesil')}</div></div>
   <div class="kart"><div class="et">Pencere Elde Kalan</div><div class="deger">${isr(pt.kalan,pt.kalan<0?'kirmizi':'yesil')}</div></div>
   <div class="kart"><div class="et">Genel Birikim (Sonuç)</div><div class="deger">${isr(kum,'mavi')}</div></div>`;
@@ -398,7 +397,6 @@ function renderOzet(){
 function renderTablo(){
   el('geriYazi').textContent=D.gerisi;
   el('ileriYazi').textContent=D.ileri;
-  if(document.activeElement!==el('devirGiris'))el('devirGiris').value=D.acilis?TL.format(D.acilis):'';
   if(document.activeElement!==el('nakitGiris'))el('nakitGiris').value=D.nakit?TL.format(D.nakit):'';
   const aylar=pencereAylar(D,BUYIL,BUAY),kol=kolonDuzelt(D),itMap={};
   D.items.forEach(i=>itMap[i.id]=i);
@@ -568,7 +566,7 @@ function renderVarlik(){
   h+='</tbody>';
   el('vtablo').innerHTML=h;
   if(zv)zv.uygula();
-  el('varlikToplamYazi').textContent=tl(varlikToplam(D));
+  el('varlikToplamYazi').textContent=tl(varlikToplam(D)+num(D.nakit));
   el('fiyatNot').innerHTML=D.fiyatZamani
     ?`<span class="canli">CANLI</span> Son güncelleme: ${new Date(D.fiyatZamani).toLocaleString('tr-TR')}`
     :'<span class="canli kapali">FİYAT YOK</span> "Fiyatları Güncelle"ye bas';
@@ -649,7 +647,7 @@ function iceAktar(dosya){
       const d=JSON.parse(r.result);
       if(!d.items||!d.vals||!d.assets)throw 0;
       if(!confirm('Mevcut tüm veriler yedekteki verilerle DEĞİŞTİRİLECEK. Devam?'))return;
-      if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.acilis==null)d.acilis=0; if(d.nakit==null)d.nakit=0;
+      if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.nakit==null)d.nakit=num(d.acilis)||0;
       kolonDuzelt(d);D=d;kaydet();tazele();toast('Yedek yüklendi');
     }catch(e){toast('Geçersiz yedek dosyası');}
   };
@@ -703,7 +701,6 @@ el('geriEksi').onclick=()=>{D.gerisi=Math.max(0,D.gerisi-1);kaydet();tazele();};
 el('geriArti').onclick=()=>{D.gerisi=Math.min(48,D.gerisi+1);kaydet();tazele();};
 el('ileriEksi').onclick=()=>{D.ileri=Math.max(0,D.ileri-1);kaydet();tazele();};
 el('ileriArti').onclick=()=>{D.ileri=Math.min(60,D.ileri+1);kaydet();tazele();};
-el('devirGiris').onchange=e=>{D.acilis=num(e.target.value);kaydet();tazele();};
 el('nakitGiris').onchange=e=>{D.nakit=num(e.target.value);kaydet();tazele();};
 el('gelirEkle').onclick=()=>kalemEkle('gelir');
 el('giderEkle').onclick=()=>kalemEkle('gider');
