@@ -53,7 +53,7 @@ main{padding:0 18px 40px}
 
 .tablo-kap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--cizgi);border-radius:14px;background:var(--yuzey)}
 table{border-collapse:collapse;width:auto}
-th,td{border-bottom:1px solid var(--cizgi);border-right:1px solid var(--cizgi);padding:0;text-align:right;white-space:nowrap}
+th,td{border-bottom:1px solid var(--cizgi);border-right:1px solid var(--cizgi);padding:0;text-align:left;white-space:nowrap}
 th:last-child,td:last-child{border-right:none}
 thead th{padding:6px 7px;font-size:13px;background:var(--yuzey2);position:sticky;top:0;z-index:2}
 tbody th,td.ay,tfoot th{padding:6px 9px;text-align:left;font-weight:600;background:var(--yuzey2);position:sticky;left:0;z-index:1}
@@ -68,12 +68,12 @@ tfoot td{padding:6px 8px;font-weight:700;background:var(--yuzey2)}
 tfoot td.kalan-h{padding:6px 8px;font-weight:800}
 tr.buay td.ay{color:var(--mavi)}
 tr.buay td.ay::after{content:" ●";font-size:10px}
-td .hucre{width:76px;min-height:36px;border:none;border-radius:0;background:transparent;text-align:right;padding:6px 8px}
+td .hucre{width:76px;min-height:36px;border:none;border-radius:0;background:transparent;text-align:left;padding:6px 8px}
 td .hucre:hover{background:var(--mavi-zemin)}
-.kalanbtn{width:100%;min-width:92px;min-height:36px;border:none;background:transparent;text-align:right;padding:6px 8px;font:inherit;color:inherit;font-weight:800}
+.kalanbtn{width:100%;min-width:92px;min-height:36px;border:none;background:transparent;text-align:left;padding:6px 8px;font:inherit;color:inherit;font-weight:800}
 .kalanbtn:hover{background:var(--mavi-zemin)}
 .kalanbtn.eksi{color:var(--kirmizi)} .kalanbtn.arti{color:var(--yesil)}
-.kolonbas{display:flex;align-items:center;gap:2px;justify-content:flex-end}
+.kolonbas{display:flex;align-items:center;gap:2px;justify-content:flex-start}
 .kolonbas .ad{cursor:pointer;display:inline-block;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;text-decoration:underline dotted transparent;transition:text-decoration-color .2s}
 .kolonbas .ad:hover{text-decoration-color:currentColor}
 .kolonbas .gunc{background:var(--mavi-zemin);border:1px solid var(--cizgi);color:var(--yazi2);font-size:11px;border-radius:999px;padding:1px 5px;line-height:1.5}
