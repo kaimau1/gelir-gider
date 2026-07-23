@@ -74,7 +74,7 @@ td .hucre:hover{background:var(--mavi-zemin)}
 .kalanbtn:hover{background:var(--mavi-zemin)}
 .kalanbtn.eksi{color:var(--kirmizi)} .kalanbtn.arti{color:var(--yesil)}
 .kolonbas{display:flex;align-items:center;gap:2px;justify-content:flex-end}
-.kolonbas .ad{cursor:pointer;text-decoration:underline dotted transparent;transition:text-decoration-color .2s}
+.kolonbas .ad{cursor:pointer;display:inline-block;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;text-decoration:underline dotted transparent;transition:text-decoration-color .2s}
 .kolonbas .ad:hover{text-decoration-color:currentColor}
 .kolonbas .gunc{background:var(--mavi-zemin);border:1px solid var(--cizgi);color:var(--yazi2);font-size:11px;border-radius:999px;padding:1px 5px;line-height:1.5}
 .kolonbas .gunc:hover{color:var(--mavi);border-color:var(--mavi)}
@@ -124,6 +124,7 @@ td .hucre:hover{background:var(--mavi-zemin)}
   td .hucre{width:60px;padding:6px 6px}
   thead th,tbody th,td.ay,tfoot th{padding:6px 6px}
   th.kalan-b,td.kalan-h,.kalanbtn{min-width:78px}
+  .kolonbas .ad{max-width:64px}
   .vtablo input,.vtablo select{min-width:76px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -387,7 +388,7 @@ function renderTablo(){
     }
     const it=itMap[tok];if(!it)return '';
     return `<th class="${it.tip}"><span class="kolonbas">${sol}`
-      +`<span class="ad" data-adla="${it.id}" title="Yeniden adlandır">${esc(it.name)}</span>`
+      +`<span class="ad" data-adla="${it.id}" title="${esc(it.name)} — dokun: yeniden adlandır">${esc(it.name)}</span>`
       +`<button class="gunc" data-gun="${it.id}" title="Gün ayarla (tüm aylar)">${it.gun?('· '+it.gun):'· gün'}</button>`
       +`${sag}<button class="sil" data-sil="${it.id}" aria-label="${esc(it.name)} sil">×</button></span></th>`;
   };
