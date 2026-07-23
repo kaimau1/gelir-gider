@@ -11,6 +11,14 @@ Uygulama tamamen istemci taraflı (client-side), tek dosyalık HTML sayfaları (
 ## Mobil Uygulama (Android APK)
 `finans.html`, `android/` klasöründeki native bir **WebView** kabuğu ile Android uygulamasına dönüştürülmüştür. Uygulamanın ana fikri korunur: veriler cihazda `localStorage`'da tutulur, fiyatlar internetten çekilir, yedek al/yükle çalışır (blob dışa aktarma paylaşım menüsüne, dosya seçici de native seçiciye bağlanmıştır).
 
+### Özellikler
+- **Sütun taşıma:** Başlıktaki `‹ ›` ile gelir/gider kalemlerinin sırasını değiştirebilirsin.
+- **Tarihli girdiler:** Bir hücreye dokununca aynı ay içinde farklı günlerde (ör. 10, 15, 30) ayrı ayrı gelir/gider satırları ekleyebilirsin; hücre bunların toplamını gösterir.
+- **Açılış bakiyesi (devir):** Elde kalan/birikim başlangıcı elle ayarlanabilir; "Elde Kalan" sütunu geniş ve belirgindir.
+- **Kayan ay penceresi:** Tablo bugüne göre otomatik kayar. Kaç ay **geri** ve kaç ay **ileri** görüneceği ayarlanabilir (ör. 1 ay geri + 12 ay ileri; istenirse 3 ay veya 15 ay).
+- **Güvenilir BIST fiyatı:** Hisse fiyatları uygulamada CORS'suz native HTTP isteğiyle çekilir.
+- **İki parmakla yakınlaştırma (pinch zoom)** ve son bırakılan durum (sekme, kaydırma, yakınlaştırma) hatırlanır.
+
 `finans.html` **tek kaynaktır**: Gradle derleme öncesinde kök dizindeki dosyayı `assets/` içine kopyalar, böylece HTML'de yapılan her değişiklik doğrudan APK'ya yansır.
 
 ### İmzalama (tek seferlik kurulum)

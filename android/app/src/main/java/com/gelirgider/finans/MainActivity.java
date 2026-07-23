@@ -2,6 +2,7 @@ package com.gelirgider.finans;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -17,16 +18,21 @@ import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
  * finans.html dosyasını tam ekran bir WebView içinde çalıştıran kabuk uygulama.
- * Uygulamanın ana fikri korunur:
- *  - localStorage ile çevrimdışı veri saklama
- *  - altın/döviz/BIST fiyatlarını internetten çekme (fetch)
- *  - "Yedek Al" (blob JSON dışa aktarma) -> paylaşım menüsü ile kaydetme
- *  - "Yedek Yükle" (dosya seçici) -> WebChromeClient.onShowFileChooser
+ * Ana fikir korunur; ek olarak:
+ *  - AndroidBridge.httpGet: CORS'suz native HTTP GET (BIST hisse fiyatı güvenilir çekilir)
+ *  - iki parmakla yakınlaştırma (pinch zoom) + yakınlaştırma seviyesinin hatırlanması
+ *  - Yedek Al (blob) -> paylaşım menüsü, Yedek Yükle -> native dosya seçici
  */
 public class MainActivity extends Activity {
 
@@ -34,10 +40,15 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private ValueCallback<Uri[]> filePathCallback;
+    private SharedPreferences prefs;
+    private float pendingScale = 0f;
+    private boolean scaleRestored = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences("butcem_ui", MODE_PRIVATE);
+        pendingScale = prefs.getFloat("scale", 0f);
 
         web = new WebView(this);
         setContentView(web);
@@ -49,8 +60,10 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        s.setSupportZoom(false);
-        s.setBuiltInZoomControls(false);
+        // İki parmakla yakınlaştırma açık; ekrandaki +/- düğmeleri gizli.
+        s.setSupportZoom(true);
+        s.setBuiltInZoomControls(true);
+        s.setDisplayZoomControls(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
@@ -60,7 +73,6 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
                 String scheme = u.getScheme();
-                // http/https bağlantılarını harici tarayıcıda aç; yerel içerik WebView'de kalsın.
                 if ("http".equals(scheme) || "https".equals(scheme)) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, u));
@@ -73,10 +85,34 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onScaleChanged(WebView view, float oldScale, float newScale) {
+                super.onScaleChanged(view, oldScale, newScale);
+                // Yakınlaştırma seviyesini yalnızca ilk geri yükleme yapıldıktan sonra sakla.
+                if (scaleRestored) {
+                    prefs.edit().putFloat("scale", newScale).apply();
+                }
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // "Yedek Al" özelliğinde oluşturulan blob indirmesini Android tarafına yönlendir.
                 view.evaluateJavascript(BLOB_HOOK, null);
+                // Son bırakılan yakınlaştırma seviyesini geri yükle (en iyi çaba).
+                view.postDelayed(() -> {
+                    try {
+                        if (pendingScale > 0.1f) {
+                            float cur = view.getScale();
+                            if (cur > 0f) {
+                                float factor = pendingScale / cur;
+                                if (factor < 0.02f) factor = 0.02f;
+                                if (factor > 50f) factor = 50f;
+                                view.zoomBy(factor);
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    scaleRestored = true;
+                }, 350);
             }
         });
 
@@ -113,7 +149,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // "Yedek Al" için doğrudan (blob dışı) indirmeleri de yakala.
         web.setDownloadListener((url, ua, disp, mime, len) -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
@@ -156,8 +191,8 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** JS'den çağrılan köprü: blob olarak üretilen yedeği dosyaya yazıp paylaşım menüsünü açar. */
     private class Bridge {
+        /** Blob olarak üretilen yedeği dosyaya yazıp paylaşım menüsünü açar. */
         @JavascriptInterface
         public void saveBase64(final String fileName, final String dataUrl) {
             runOnUiThread(() -> {
@@ -190,9 +225,56 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        /**
+         * CORS kısıtı olmadan HTTP GET yapar (BIST hisse fiyatı vb.), sonucu
+         * window.__httpResolve(cbId, ok, body) ile JS'e döndürür.
+         */
+        @JavascriptInterface
+        public void httpGet(final String url, final String cbId) {
+            new Thread(() -> {
+                boolean ok = false;
+                String body = "";
+                HttpURLConnection c = null;
+                try {
+                    c = (HttpURLConnection) new URL(url).openConnection();
+                    c.setConnectTimeout(10000);
+                    c.setReadTimeout(10000);
+                    c.setInstanceFollowRedirects(true);
+                    c.setRequestProperty("User-Agent",
+                            "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Butcem");
+                    c.setRequestProperty("Accept", "application/json, text/plain, */*");
+                    int code = c.getResponseCode();
+                    InputStream is = (code >= 200 && code < 400) ? c.getInputStream() : c.getErrorStream();
+                    body = readAll(is);
+                    ok = (code >= 200 && code < 300);
+                } catch (Exception e) {
+                    body = String.valueOf(e.getMessage());
+                    ok = false;
+                } finally {
+                    if (c != null) c.disconnect();
+                }
+                final boolean fok = ok;
+                final String fbody = body;
+                runOnUiThread(() -> {
+                    String js = "window.__httpResolve && window.__httpResolve("
+                            + JSONObject.quote(cbId) + "," + fok + "," + JSONObject.quote(fbody) + ");";
+                    if (web != null) web.evaluateJavascript(js, null);
+                });
+            }).start();
+        }
     }
 
-    // download nitelikli blob bağlantısına yapılan tıklamaları Android köprüsüne yönlendiren enjeksiyon.
+    private static String readAll(InputStream is) throws Exception {
+        if (is == null) return "";
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
+        is.close();
+        return bos.toString("UTF-8");
+    }
+
     private static final String BLOB_HOOK =
             "(function(){" +
             "  if(window.__blobHook)return;window.__blobHook=1;" +
