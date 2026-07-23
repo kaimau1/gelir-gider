@@ -1,0 +1,100 @@
+name: Android APK Build & Release
+
+on:
+  push:
+    branches:
+      - main
+      - claude/repo-public-mobile-apk-s5e82g
+    paths:
+      - 'android/**'
+      - 'finans.html'
+      - '.github/workflows/android-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+
+      - name: Generate signing keystore
+        working-directory: android
+        run: |
+          keytool -genkeypair -v \
+            -keystore release.keystore \
+            -alias gelirgider \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass gelirgider -keypass gelirgider \
+            -dname "CN=Gelir-Gider, OU=App, O=Gelir-Gider, L=Istanbul, ST=Istanbul, C=TR"
+
+      - name: Build signed release APK
+        working-directory: android
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/android/release.keystore
+          KEYSTORE_PASSWORD: gelirgider
+          KEY_ALIAS: gelirgider
+          KEY_PASSWORD: gelirgider
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Stage APK
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/app-release.apk dist/gelir-gider.apk
+          ls -lh dist
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gelir-gider-apk
+          path: dist/gelir-gider.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Gelir-Gider v1.0.${{ github.run_number }}
+          body: |
+            **Gelir-Gider & Varlık Takibi** — Android uygulaması (APK)
+
+            `finans.html` tabanlı, tamamen çevrimdışı çalışan kişisel/aile bütçe
+            ve varlık takip uygulamasının native WebView paketi.
+
+            ### Kurulum
+            1. Aşağıdaki `gelir-gider.apk` dosyasını Android telefonunuza indirin.
+            2. Açmaya çalıştığınızda "bilinmeyen kaynaklar" izni istenirse verin.
+            3. Uygulamayı kurun ve açın.
+
+            ### Özellikler
+            - Aylık/yıllık gelir-gider tablosu, otomatik kaydolan hücreler
+            - Varlık takibi: altın, döviz, gümüş ve BIST hisse fiyatları canlı çekilir
+            - Koyu/açık tema
+            - Yedek al / yedek yükle (JSON) — veriler cihazda `localStorage`'da saklanır
+
+            > Not: APK otomatik üretilen bir anahtarla imzalanmıştır; Play Store dışı
+            > (sideload) kurulum içindir.
+          files: dist/gelir-gider.apk
+          fail_on_unmatched_files: true

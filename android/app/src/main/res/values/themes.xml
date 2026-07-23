@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Aksiyon çubuğu olmadan, açılışta beyaz parlama olmaması için koyu arka planlı tema. -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/appBg</item>
+        <item name="android:statusBarColor">@color/appBg</item>
+        <item name="android:navigationBarColor">@color/appBg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
