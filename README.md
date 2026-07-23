@@ -58,3 +58,29 @@ Ardından GitHub'da **Settings → Secrets and variables → Actions → New rep
 - Uygulama adı: **Bütçem** — Paket adı: `com.gelirgider.finans`, min SDK 26, hedef SDK 34
 - İzinler: `INTERNET`, `ACCESS_NETWORK_STATE`
 - Tek `MainActivity` (WebView) — ek üçüncü parti çerçeve yoktur.
+
+## Web sitesi (GitHub Pages)
+`finans.html` = mobil uygulamanın tek kaynağıdır ve aynı dosya web'de de yayınlanır. Kök `index.html`, mobil uygulamaya (`finans.html`) yönlendirir; eski bütçe-tablosu deneme dosyası `butce.html` olarak durur.
+- Site: **https://kaimau1.github.io/gelir-gider/**
+- Doğrudan: `.../finans.html`
+
+## Firebase senkron (cihazlar-arası)
+E-posta+şifre ile giriş yapılınca veri (`gelirGiderV3`) Firestore'da `kullanicilar/{uid}` altında tutulur; telefon (APK) ve web aynı hesapla aynı veriyi görür. Giriş yapılmazsa uygulama eskisi gibi çevrimdışı `localStorage` ile çalışır.
+
+**Tek seferlik kurulum** (kendi ücretsiz Firebase projen):
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Add project** (Analytics kapatabilirsin).
+2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable**.
+3. **Build → Firestore Database → Create database** (production mode). **Rules** sekmesine şunu yapıştır → Publish:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /kullanicilar/{uid} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+     }
+   }
+   ```
+4. **Project settings (⚙️) → General → Your apps → Web (`</>`)** ile uygulama ekle, çıkan `firebaseConfig` değerlerini `finans.html` içindeki `FIREBASE_CONFIG` bloğuna yapıştır (apiKey, authDomain, projectId, appId). Push et → web ve (yeniden derlenen) APK senkron olur.
+
+> E-posta+şifre girişi için ayrıca "authorized domains" ayarı gerekmez; `apiKey` gibi değerler web'de görünür olması normaldir (güvenlik Firestore kurallarıyla sağlanır).

@@ -280,6 +280,7 @@ if(typeof module!=='undefined')module.exports={AYLAR,AYKISA,OZEL,OZELAD,num,cell
 <header>
   <h1>Bütçem</h1>
   <button class="btn kucuk" id="temaBtn" aria-label="Tema değiştir">Tema</button>
+  <button class="btn kucuk gizli" id="girisBtn">Giriş / Kayıt</button>
   <button class="btn kucuk" id="disaBtn">Yedek Al</button>
   <button class="btn kucuk" id="iceBtn">Yedek Yükle</button>
   <input type="file" id="iceDosya" accept=".json" class="gizli">
@@ -732,6 +733,79 @@ temaUygula();tazele();
   requestAnimationFrame(()=>{if(u.sx)el('tabloKap').scrollLeft=u.sx;if(u.sy)window.scrollTo(0,u.sy);});
 })();
 if(navigator.onLine)fiyatCek();
+</script>
+
+<!-- ==== FIREBASE SENKRON (e-posta+şifre) ==== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+/* ADIM: kendi Firebase projenin config'ini buraya yapıştır (README'deki 4 adım). */
+const FIREBASE_CONFIG = {
+  apiKey: "BURAYA_API_KEY",
+  authDomain: "BURAYA_PROJE.firebaseapp.com",
+  projectId: "BURAYA_PROJE",
+  appId: "BURAYA_APP_ID"
+};
+
+(function(){
+  // firebase yüklenmedi (çevrimdışı) ya da config girilmedi → uygulama eskisi gibi localStorage ile çalışır
+  if(!window.firebase || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('BURAYA')===0) return;
+
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth=firebase.auth(), db=firebase.firestore();
+  const doc=()=>db.collection('kullanicilar').doc(auth.currentUser.uid);
+  const btn=el('girisBtn'); btn.classList.remove('gizli');
+  let dinle=null, sonYazilan='';
+
+  // yerel kaydet()'i sarmala: girişliyse buluta da yaz (debounce)
+  const _kaydet=window.kaydet; let yazZ;
+  window.kaydet=function(){
+    _kaydet();
+    if(!auth.currentUser) return;
+    clearTimeout(yazZ);
+    yazZ=setTimeout(()=>{ sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:Date.now()}); },800);
+  };
+
+  function uzaktanUygula(veri){
+    // ponytail: last-write-wins; kişisel tek kullanıcı için yeterli
+    let d; try{ d=JSON.parse(veri); }catch(e){ return; }
+    if(!d.items||!d.vals||!d.assets) return;
+    if(JSON.stringify(d)===JSON.stringify(D)) return; // aynıysa dokunma (döngü engeli)
+    if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.nakit==null)d.nakit=num(d.acilis)||0;
+    kolonDuzelt(d); D=d; localStorage.setItem(KAYIT,JSON.stringify(D)); temaUygula(); tazele();
+  }
+
+  auth.onAuthStateChanged(u=>{
+    if(dinle){dinle();dinle=null;}
+    btn.textContent = u ? ('Çıkış · '+u.email) : 'Giriş / Kayıt';
+    if(!u) return;
+    dinle=doc().onSnapshot(snap=>{
+      const v=snap.data();
+      if(v && v.D){ if(v.D!==sonYazilan) uzaktanUygula(v.D); }
+      else { sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:Date.now()}); } // bulut boş → yereli yükle
+    }, ()=>{});
+  });
+
+  function girisModal(){
+    el('mBaslik').textContent='Giriş / Kayıt';
+    el('mGovde').innerHTML=
+      '<div style="display:flex;flex-direction:column;gap:10px;max-width:320px">'+
+      '<input id="fbMail" type="email" placeholder="E-posta" autocomplete="username">'+
+      '<input id="fbPw" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password">'+
+      '<div style="display:flex;gap:8px">'+
+      '<button class="btn birincil" id="fbGir" style="flex:1">Giriş yap</button>'+
+      '<button class="btn" id="fbKay" style="flex:1">Kayıt ol</button></div>'+
+      '<p class="not" style="margin:0">Aynı hesapla telefonda ve web\'de aynı veriyi görürsün.</p></div>';
+    el('modal').classList.remove('gizli');
+    const mail=()=>el('fbMail').value.trim(), pw=()=>el('fbPw').value;
+    const hata=e=>toast(({'auth/invalid-email':'Geçersiz e-posta','auth/missing-password':'Şifre gir','auth/weak-password':'Şifre en az 6 karakter','auth/email-already-in-use':'Bu e-posta kayıtlı, giriş yap','auth/invalid-credential':'E-posta ya da şifre hatalı','auth/wrong-password':'Şifre hatalı','auth/user-not-found':'Kullanıcı yok, kayıt ol'})[e.code]||('Hata: '+e.code));
+    el('fbGir').onclick=()=>auth.signInWithEmailAndPassword(mail(),pw()).then(modalKapat).catch(hata);
+    el('fbKay').onclick=()=>auth.createUserWithEmailAndPassword(mail(),pw()).then(modalKapat).catch(hata);
+  }
+
+  btn.onclick=()=>{ if(auth.currentUser){ auth.signOut(); toast('Çıkış yapıldı'); } else girisModal(); };
+})();
 </script>
 </body>
 </html>
