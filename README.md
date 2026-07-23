@@ -16,8 +16,12 @@ Uygulama tamamen istemci taraflı (client-side), tek dosyalık HTML sayfaları (
 - **Tarihli girdiler:** Bir hücreye dokununca aynı ay içinde farklı günlerde (ör. 10, 15, 30) ayrı ayrı gelir/gider satırları ekleyebilirsin; hücre bunların toplamını gösterir.
 - **Açılış bakiyesi (devir):** Elde kalan/birikim başlangıcı elle ayarlanabilir; "Elde Kalan" sütunu geniş ve belirgindir.
 - **Kayan ay penceresi:** Tablo bugüne göre otomatik kayar. Kaç ay **geri** ve kaç ay **ileri** görüneceği ayarlanabilir (ör. 1 ay geri + 12 ay ileri; istenirse 3 ay veya 15 ay).
+- **Gün bazlı kalan dökümü:** Her kaleme sabit bir gün atanır (tüm aylara uygulanır); "Elde Kalan"a dokununca o ayın günlük (10'unda / 15'inde / 30'unda) kalan dökümü çıkar.
+- **Serbest sütun sırası:** Kalem sütunları ve özet sütunları (GELİR/GİDER/Elde Kalan/SONUÇ) `‹ ›` ile istenen sıraya taşınır.
 - **Güvenilir BIST fiyatı:** Hisse fiyatları uygulamada CORS'suz native HTTP isteğiyle çekilir.
-- **İki parmakla yakınlaştırma (pinch zoom)** ve son bırakılan durum (sekme, kaydırma, yakınlaştırma) hatırlanır.
+- **Sadece tabloya yakınlaştırma:** İki parmakla (veya Yakınlık düğmeleriyle / "Sığdır") tabloyu küçültüp daha çok sütun-satır görebilirsin; sayfa değil yalnızca tablo ölçeklenir. Aynı özellik varlık tablosunda da vardır.
+- **Kompact varlık tablosu:** Her varlığın değeri en başta; daha az kaydırma.
+- Son bırakılan durum (sekme, kaydırma, yakınlaştırma) hatırlanır.
 
 `finans.html` **tek kaynaktır**: Gradle derleme öncesinde kök dizindeki dosyayı `assets/` içine kopyalar, böylece HTML'de yapılan her değişiklik doğrudan APK'ya yansır.
 

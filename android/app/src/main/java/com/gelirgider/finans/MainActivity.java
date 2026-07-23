@@ -2,7 +2,6 @@ package com.gelirgider.finans;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -40,16 +39,10 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private ValueCallback<Uri[]> filePathCallback;
-    private SharedPreferences prefs;
-    private float pendingScale = 0f;
-    private boolean scaleRestored = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        prefs = getSharedPreferences("butcem_ui", MODE_PRIVATE);
-        pendingScale = prefs.getFloat("scale", 0f);
-
         web = new WebView(this);
         setContentView(web);
 
@@ -60,9 +53,10 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
-        // İki parmakla yakınlaştırma açık; ekrandaki +/- düğmeleri gizli.
-        s.setSupportZoom(true);
-        s.setBuiltInZoomControls(true);
+        // Sayfa yakınlaştırması kapalı — yakınlaştırma yalnızca tabloya, sayfa içinde
+        // (CSS zoom) uygulanır; böylece uzaklaşınca daha çok sütun/satır ekrana sığar.
+        s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
@@ -85,34 +79,9 @@ public class MainActivity extends Activity {
             }
 
             @Override
-            public void onScaleChanged(WebView view, float oldScale, float newScale) {
-                super.onScaleChanged(view, oldScale, newScale);
-                // Yakınlaştırma seviyesini yalnızca ilk geri yükleme yapıldıktan sonra sakla.
-                if (scaleRestored) {
-                    prefs.edit().putFloat("scale", newScale).apply();
-                }
-            }
-
-            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 view.evaluateJavascript(BLOB_HOOK, null);
-                // Son bırakılan yakınlaştırma seviyesini geri yükle (en iyi çaba).
-                view.postDelayed(() -> {
-                    try {
-                        if (pendingScale > 0.1f) {
-                            float cur = view.getScale();
-                            if (cur > 0f) {
-                                float factor = pendingScale / cur;
-                                if (factor < 0.02f) factor = 0.02f;
-                                if (factor > 50f) factor = 50f;
-                                view.zoomBy(factor);
-                            }
-                        }
-                    } catch (Exception ignored) {
-                    }
-                    scaleRestored = true;
-                }, 350);
             }
         });
 
