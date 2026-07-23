@@ -10,18 +10,29 @@ android {
         applicationId "com.gelirgider.finans"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // Sürüm CI tarafından verilir (her yayında artar -> güncelleme mümkün).
+        def envVersionCode = System.getenv("VERSION_CODE")
+        def envVersionName = System.getenv("VERSION_NAME")
+        versionCode(envVersionCode ? envVersionCode.toInteger() : 1)
+        versionName(envVersionName ?: "1.0")
     }
 
     signingConfigs {
         release {
+            // Kalıcı imza anahtarı depoda tutulur; böylece her APK AYNI imzayla
+            // üretilir ve mevcut kurulumun üstüne güncelleme yapılabilir.
+            // Ortam değişkeni verilirse (özel anahtar için) o kullanılır.
             def ksPath = System.getenv("KEYSTORE_FILE")
             if (ksPath != null && !ksPath.isEmpty()) {
                 storeFile file(ksPath)
                 storePassword System.getenv("KEYSTORE_PASSWORD")
                 keyAlias System.getenv("KEY_ALIAS")
                 keyPassword System.getenv("KEY_PASSWORD")
+            } else {
+                storeFile file("butcem-release.jks")
+                storePassword "butcem2026"
+                keyAlias "butcem"
+                keyPassword "butcem2026"
             }
         }
     }
@@ -29,11 +40,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            // Anahtar deposu ortam değişkeni olarak verildiyse release'i imzala.
-            def ksPath = System.getenv("KEYSTORE_FILE")
-            if (ksPath != null && !ksPath.isEmpty()) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
     }
 

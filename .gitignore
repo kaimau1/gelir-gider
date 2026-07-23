@@ -5,6 +5,9 @@ android/app/build/
 android/local.properties
 android/release.keystore
 android/*.keystore
+# İmza anahtarı ASLA depoya girmez — GitHub Secret (KEYSTORE_BASE64) olarak tutulur.
+android/app/butcem-release.jks
+*.jks
 
 # finans.html derleme sırasında assets'e kopyalanır (tek kaynak: kök finans.html)
 android/app/src/main/assets/finans.html

@@ -38,23 +38,25 @@ jobs:
         run: |
           yes | sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
 
-      - name: Generate signing keystore
+      - name: Restore signing keystore from secret
         working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          keytool -genkeypair -v \
-            -keystore release.keystore \
-            -alias gelirgider \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass gelirgider -keypass gelirgider \
-            -dname "CN=Gelir-Gider, OU=App, O=Gelir-Gider, L=Istanbul, ST=Istanbul, C=TR"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 secret tanımlı değil. Settings > Secrets and variables > Actions altına ekleyin (kurulum için PR açıklamasına bakın)."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/butcem-release.jks
+          echo "Keystore geri yüklendi ($(stat -c%s app/butcem-release.jks) bayt)."
 
       - name: Build signed release APK
         working-directory: android
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/android/release.keystore
-          KEYSTORE_PASSWORD: gelirgider
-          KEY_ALIAS: gelirgider
-          KEY_PASSWORD: gelirgider
+          # Kalıcı imza anahtarı GitHub Secret'tan gelir; tüm sürümler AYNI imzayla
+          # üretilir -> mevcut kurulumun üstüne güncelleme yapılabilir.
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
         run: |
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease --no-daemon --stacktrace

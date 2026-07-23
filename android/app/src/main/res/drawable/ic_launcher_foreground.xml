@@ -5,30 +5,42 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Yükselen bütçe çubukları -->
-    <path
-        android:fillColor="#34D399"
-        android:pathData="M38,64 h9 v18 h-9 z" />
+    <!-- Cüzdanın arkasından görünen kart -->
     <path
         android:fillColor="#3B82F6"
-        android:pathData="M51,54 h9 v28 h-9 z" />
+        android:pathData="M37,38 h34 a5,5 0 0 1 5,5 v8 h-44 v-8 a5,5 0 0 1 5,-5 z" />
+
+    <!-- Cüzdan gövdesi -->
     <path
         android:fillColor="#F1F5F9"
-        android:pathData="M64,42 h9 v40 h-9 z" />
+        android:pathData="M31,45 H77 A7,7 0 0 1 84,52 V74 A7,7 0 0 1 77,81 H31 A7,7 0 0 1 24,74 V52 A7,7 0 0 1 31,45 Z" />
 
-    <!-- Yükseliş oku -->
+    <!-- Sağdaki kıskaç (yeşil) -->
     <path
-        android:strokeColor="#F1F5F9"
-        android:strokeWidth="3.2"
+        android:fillColor="#34D399"
+        android:pathData="M72,58 h9 a3,3 0 0 1 3,3 v4 a3,3 0 0 1 -3,3 h-9 z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M77.5,63 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0" />
+
+    <!-- ₺ simgesi -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="#00000000"
-        android:pathData="M36,58 L50,47 L58,51 L74,36" />
+        android:pathData="M52,53 L47,74 L57,71" />
     <path
-        android:strokeColor="#F1F5F9"
-        android:strokeWidth="3.2"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.6"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
         android:fillColor="#00000000"
-        android:pathData="M67,35 H75 V43" />
+        android:pathData="M42,62 L58,56" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M42,68 L56,62" />
 </vector>
