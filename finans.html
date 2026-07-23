@@ -68,8 +68,10 @@ tfoot td{padding:6px 8px;font-weight:700;background:var(--yuzey2)}
 tfoot td.kalan-h{padding:6px 8px;font-weight:800}
 tr.buay td.ay{color:var(--mavi)}
 tr.buay td.ay::after{content:" ●";font-size:10px}
-td .hucre{width:100%;min-width:56px;min-height:36px;border:none;border-radius:0;background:transparent;text-align:left;padding:6px 8px}
+td .hucre{display:inline-block;width:100%;min-width:46px;min-height:36px;border:none;border-radius:0;background:transparent;text-align:left;padding:6px 9px;font:inherit;color:inherit;white-space:nowrap;cursor:text}
 td .hucre:hover{background:var(--mavi-zemin)}
+.hucreEdit{width:100%;min-width:64px;min-height:36px;border:1px solid var(--mavi);border-radius:6px;background:var(--yuzey);text-align:left;padding:6px 8px;font:inherit;color:inherit}
+.ayarlar{background:var(--yuzey);border:1px solid var(--cizgi);border-radius:12px;padding:10px 12px;margin:0 0 12px}
 .kalanbtn{width:100%;min-width:92px;min-height:36px;border:none;background:transparent;text-align:left;padding:6px 8px;font:inherit;color:inherit;font-weight:800}
 .kalanbtn:hover{background:var(--mavi-zemin)}
 .kalanbtn.eksi{color:var(--kirmizi)} .kalanbtn.arti{color:var(--yesil)}
@@ -293,15 +295,19 @@ if(typeof module!=='undefined')module.exports={AYLAR,AYKISA,OZEL,OZELAD,num,cell
 <main>
   <section id="tabloBolum">
     <div class="arac">
+      <button class="btn kucuk" id="ayarBtn">⚙ Ayarlar</button>
+      <button class="btn kucuk" id="ztFit" title="Ekrana sığdır">⤢ Sığdır</button>
+      <button class="btn kucuk" id="gelirEkle">+ Gelir</button>
+      <button class="btn kucuk" id="giderEkle">+ Gider</button>
+    </div>
+    <div class="ayarlar gizli arac" id="ayarPanel">
       <div class="stepper"><span class="et">Geri</span><button id="geriEksi" aria-label="Geri ay azalt">−</button><b id="geriYazi"></b><button id="geriArti" aria-label="Geri ay arttır">+</button></div>
       <div class="stepper"><span class="et">İleri</span><button id="ileriEksi" aria-label="İleri ay azalt">−</button><b id="ileriYazi"></b><button id="ileriArti" aria-label="İleri ay arttır">+</button></div>
-      <div class="stepper"><span class="et">Yakınlık</span><button id="ztEksi" aria-label="Uzaklaş">−</button><button id="ztFit" title="Ekrana sığdır" aria-label="Sığdır">⤢</button><button id="ztArti" aria-label="Yakınlaş">+</button></div>
+      <div class="stepper"><span class="et">Yakınlık</span><button id="ztEksi" aria-label="Uzaklaş">−</button><button id="ztArti" aria-label="Yakınlaş">+</button></div>
       <div class="devir"><span class="et">Açılış bakiyesi</span><input id="devirGiris" inputmode="decimal" aria-label="Açılış bakiyesi"></div>
       <div class="devir"><span class="et">Eldeki nakit</span><input id="nakitGiris" inputmode="decimal" aria-label="Eldeki nakit"></div>
-      <button class="btn kucuk" id="gelirEkle">+ Gelir Kalemi</button>
-      <button class="btn kucuk" id="giderEkle">+ Gider Kalemi</button>
-      <span class="not ipucu">Başlıktaki ⋯ menüsünden gün ata, sütunu taşı, adlandır veya sil. Kaleme gün atayınca o güne ait "kalan" sütunu (ör. 10'u, 15'i) otomatik eklenir.</span>
     </div>
+    <p class="not ipucu" style="margin:0 0 10px">Hücreye dokun → tutar gir. Başlıktaki ⋯ menüsünden gün ata / taşı / adlandır / sil. Kaleme gün atayınca o güne ait "kalan" sütunu otomatik eklenir.</p>
     <div class="tablo-kap" id="tabloKap"><table id="tablo"></table></div>
   </section>
 
@@ -423,7 +429,7 @@ function renderTablo(){
       if(tok==='@sonuc')return `<td class="hesap">${kum?TL.format(kum):''}</td>`;
       const it=itMap[tok];if(!it)return '';
       const s=cellSum(v[it.id]);
-      return `<td><input class="hucre" inputmode="decimal" data-item="${it.id}" data-key="${key}" value="${s?TL.format(s):''}" aria-label="${esc(it.name)} ${AYKISA[m]} ${y}"></td>`;
+      return `<td><button class="hucre" data-item="${it.id}" data-key="${key}" aria-label="${esc(it.name)} ${AYKISA[m]} ${y}">${s?TL.format(s):''}</button></td>`;
     };
     h+=`<tr${buAyMi?' class="buay"':''}><td class="ay">${AYKISA[m]} ${y}</td>`+kol.map(bc).join('')+'</tr>';
   }
@@ -487,6 +493,21 @@ function hucreKaydet(inp){
   if(x)D.vals[k][inp.dataset.item]=x;else delete D.vals[k][inp.dataset.item];
   if(!Object.keys(D.vals[k]).length)delete D.vals[k];
   kaydet();tazele();
+}
+/* Hücreye dokununca yerinde küçük input aç; sayılar buton (metin) olduğu için kesilmez */
+function hucreDuzenle(btn){
+  if(!btn||btn.tagName!=='BUTTON')return;
+  const item=btn.dataset.item,key=btn.dataset.key;
+  const cur=cellSum((D.vals[key]||{})[item]);
+  const inp=document.createElement('input');
+  inp.className='hucreEdit';inp.setAttribute('inputmode','decimal');
+  inp.value=cur?TL.format(cur):'';
+  inp.dataset.item=item;inp.dataset.key=key;
+  btn.replaceWith(inp);inp.focus();inp.select();
+  let bitti=false;
+  const bitir=()=>{if(bitti)return;bitti=true;hucreKaydet(inp);};
+  inp.addEventListener('blur',bitir);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
 }
 function kalemEkle(tip){
   const ad=prompt(tip==='gelir'?'Yeni gelir kaleminin adı:':'Yeni gider kaleminin adı (ör. kredi kartı, fatura):');
@@ -640,9 +661,10 @@ function tazele(){renderOzet();renderTablo();renderVarlik();}
 function temaUygula(){document.documentElement.dataset.tema=D.tema;}
 
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-menu],[data-kact],[data-adla],[data-vsil],[data-kalan],.sekme')||e.target;
+  const t=e.target.closest('[data-menu],[data-kact],[data-item],[data-adla],[data-vsil],[data-kalan],.sekme')||e.target;
   const ds=t.dataset||{};
   if(ds.menu!=null)return modalKolonAc(+ds.menu);
+  if(ds.item&&t.classList.contains('hucre'))return hucreDuzenle(t);
   if(ds.kact){
     const idx=+ds.kidx,tok=D.kolonlar[idx];
     if(ds.kact==='sol'){kolonTasi(D,idx,-1);kaydet();modalKapat();renderTablo();}
@@ -663,7 +685,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target,ds=t.dataset;
-  if(ds.item)return hucreKaydet(t);
+  if(ds.item)return; // hücre düzenleme kutusu kendi blur/enter olayında kaydeder
   const a=ds.vad?varlikBul(ds.vad):ds.vtip?varlikBul(ds.vtip):ds.vkod?varlikBul(ds.vkod):ds.vadet?varlikBul(ds.vadet):ds.vfiyat?varlikBul(ds.vfiyat):null;
   if(!a)return;
   if(ds.vad)a.name=t.value.trim()||a.name;
@@ -673,9 +695,10 @@ document.addEventListener('change',e=>{
   else if(ds.vfiyat)a.fiyat=num(t.value);
   kaydet();tazele();
 });
-document.addEventListener('focusin',e=>{if(e.target.classList&&(e.target.classList.contains('hucre')||e.target.classList.contains('sag')))e.target.select();});
+document.addEventListener('focusin',e=>{if(e.target.select&&e.target.classList&&(e.target.classList.contains('hucreEdit')||e.target.classList.contains('sag')))e.target.select();});
 
 el('temaBtn').onclick=()=>{D.tema=D.tema==='dark'?'light':'dark';kaydet();temaUygula();};
+el('ayarBtn').onclick=()=>el('ayarPanel').classList.toggle('gizli');
 el('geriEksi').onclick=()=>{D.gerisi=Math.max(0,D.gerisi-1);kaydet();tazele();};
 el('geriArti').onclick=()=>{D.gerisi=Math.min(48,D.gerisi+1);kaydet();tazele();};
 el('ileriEksi').onclick=()=>{D.ileri=Math.max(0,D.ileri-1);kaydet();tazele();};
