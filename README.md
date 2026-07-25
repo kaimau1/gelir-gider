@@ -12,6 +12,9 @@ Uygulama tamamen istemci taraflı (client-side), tek dosyalık HTML sayfaları (
 `finans.html`, `android/` klasöründeki native bir **WebView** kabuğu ile Android uygulamasına dönüştürülmüştür. Uygulamanın ana fikri korunur: veriler cihazda `localStorage`'da tutulur, fiyatlar internetten çekilir, yedek al/yükle çalışır (blob dışa aktarma paylaşım menüsüne, dosya seçici de native seçiciye bağlanmıştır).
 
 ### Özellikler
+- **Sesli / yazılı komut (Gemini):** Tablonun üstündeki kutuya yazarak veya 🎤 ile söyleyerek tabloyu değiştirebilirsin: *"spor salonu diye gider aç, her aya 3000 yaz"*, *"kirayı ekimden itibaren 70 bin yap"*, *"aidat sütununu sil"*. Ses→metin **cihazda ücretsiz** yapılır (uygulamada Android konuşma tanıma, tarayıcıda Web Speech); Gemini'ye yalnızca kısa metin + tablo özeti gider. Yapılan değişiklik **↩ Geri al** ile tek dokunuşta geri alınır.
+  - Kurulum: [aistudio.google.com/apikey](https://aistudio.google.com/apikey) adresinden ücretsiz API key al → **⚙ Ayarlar → Gemini API key**'e yapıştır → model listesi otomatik çekilir, birini seç (varsayılan: bir *flash* modeli). Key yalnızca cihazda (localStorage) durur, depoya girmez.
+  - Komut mantığının kontrolü: `node test-eylem.js`
 - **Sütun taşıma:** Başlıktaki `‹ ›` ile gelir/gider kalemlerinin sırasını değiştirebilirsin.
 - **Tarihli girdiler:** Bir hücreye dokununca aynı ay içinde farklı günlerde (ör. 10, 15, 30) ayrı ayrı gelir/gider satırları ekleyebilirsin; hücre bunların toplamını gösterir.
 - **Açılış bakiyesi (devir):** Elde kalan/birikim başlangıcı elle ayarlanabilir; "Elde Kalan" sütunu geniş ve belirgindir.

@@ -1,9 +1,12 @@
 package com.gelirgider.finans;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.util.Base64;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
@@ -23,8 +26,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
 /**
  * finans.html dosyasını tam ekran bir WebView içinde çalıştıran kabuk uygulama.
@@ -36,6 +42,8 @@ import java.net.URL;
 public class MainActivity extends Activity {
 
     private static final int REQ_FILE_CHOOSER = 1001;
+    private static final int REQ_SPEECH = 1002;
+    private static final int REQ_MIC = 2001;
 
     private WebView web;
     private ValueCallback<Uri[]> filePathCallback;
@@ -132,8 +140,48 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Cihazın kendi konuşma tanıma ekranını açar (tr-TR, ücretsiz, cihazda). */
+    private void sesiBaslat() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
+            return;
+        }
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR");
+        i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Ne yapayım?");
+        try {
+            startActivityForResult(i, REQ_SPEECH);
+        } catch (Exception e) {
+            sesSonuc(false, "Cihazda ses tanıma yok (Google uygulaması gerekli)");
+        }
+    }
+
+    /** Tanınan metni (veya hatayı) JS'e döndürür. */
+    private void sesSonuc(boolean ok, String metin) {
+        String js = "window.__sesSonuc && window.__sesSonuc(" + ok + "," + JSONObject.quote(metin == null ? "" : metin) + ");";
+        if (web != null) web.evaluateJavascript(js, null);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        if (requestCode == REQ_MIC) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) sesiBaslat();
+            else sesSonuc(false, "Mikrofon izni verilmedi");
+            return;
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_SPEECH) {
+            ArrayList<String> r = (resultCode == RESULT_OK && data != null)
+                    ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
+            if (r != null && !r.isEmpty()) sesSonuc(true, r.get(0));
+            else sesSonuc(false, "Anlaşılmadı, tekrar dene");
+            return;
+        }
         if (requestCode == REQ_FILE_CHOOSER) {
             if (filePathCallback != null) {
                 Uri[] result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
@@ -195,12 +243,28 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** Cihazın konuşma tanımasını açar; sonuç window.__sesSonuc ile JS'e döner. */
+        @JavascriptInterface
+        public void dinle() {
+            runOnUiThread(MainActivity.this::sesiBaslat);
+        }
+
         /**
          * CORS kısıtı olmadan HTTP GET yapar (BIST hisse fiyatı vb.), sonucu
          * window.__httpResolve(cbId, ok, body) ile JS'e döndürür.
          */
         @JavascriptInterface
         public void httpGet(final String url, final String cbId) {
+            istek(url, null, cbId);
+        }
+
+        /** JSON gövdeli POST (Gemini isteği); yanıt aynı geri çağrıyla döner. */
+        @JavascriptInterface
+        public void httpPost(final String url, final String govde, final String cbId) {
+            istek(url, govde == null ? "" : govde, cbId);
+        }
+
+        private void istek(final String url, final String govde, final String cbId) {
             new Thread(() -> {
                 boolean ok = false;
                 String body = "";
@@ -208,11 +272,21 @@ public class MainActivity extends Activity {
                 try {
                     c = (HttpURLConnection) new URL(url).openConnection();
                     c.setConnectTimeout(10000);
-                    c.setReadTimeout(10000);
+                    c.setReadTimeout(govde == null ? 10000 : 25000);
                     c.setInstanceFollowRedirects(true);
                     c.setRequestProperty("User-Agent",
                             "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Butcem");
                     c.setRequestProperty("Accept", "application/json, text/plain, */*");
+                    if (govde != null) {
+                        byte[] veri = govde.getBytes(StandardCharsets.UTF_8);
+                        c.setRequestMethod("POST");
+                        c.setDoOutput(true);
+                        c.setFixedLengthStreamingMode(veri.length);
+                        c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                        try (OutputStream os = c.getOutputStream()) {
+                            os.write(veri);
+                        }
+                    }
                     int code = c.getResponseCode();
                     InputStream is = (code >= 200 && code < 400) ? c.getInputStream() : c.getErrorStream();
                     body = readAll(is);
