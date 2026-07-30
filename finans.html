@@ -975,24 +975,27 @@ const FIREBASE_CONFIG = {
   const auth=firebase.auth(), db=firebase.firestore();
   const doc=()=>db.collection('kullanicilar').doc(auth.currentUser.uid);
   const btn=el('girisBtn'); btn.classList.remove('gizli');
+  const ZKEY=KAYIT+'_t';
   let dinle=null, sonYazilan='';
+  const yerelZaman=()=>Number(localStorage.getItem(ZKEY))||0;
 
   // yerel kaydet()'i sarmala: girişliyse buluta da yaz (debounce)
   const _kaydet=window.kaydet; let yazZ;
   window.kaydet=function(){
     _kaydet();
+    const simdi=Date.now();
+    localStorage.setItem(ZKEY,simdi); // debounce'tan bağımsız, anında: kapatılsa/offline olsa bile kaybolmasın
     if(!auth.currentUser) return;
     clearTimeout(yazZ);
-    yazZ=setTimeout(()=>{ sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:Date.now()}); },800);
+    yazZ=setTimeout(()=>{ sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:simdi}); },800);
   };
 
-  function uzaktanUygula(veri){
-    // ponytail: last-write-wins; kişisel tek kullanıcı için yeterli
+  function uzaktanUygula(veri,zaman){
     let d; try{ d=JSON.parse(veri); }catch(e){ return; }
     if(!d.items||!d.vals||!d.assets) return;
     if(JSON.stringify(d)===JSON.stringify(D)) return; // aynıysa dokunma (döngü engeli)
     if(d.gerisi==null)d.gerisi=1; if(d.ileri==null)d.ileri=12; if(d.nakit==null)d.nakit=num(d.acilis)||0;
-    kolonDuzelt(d); D=d; localStorage.setItem(KAYIT,JSON.stringify(D)); temaUygula(); tazele();
+    kolonDuzelt(d); D=d; localStorage.setItem(KAYIT,JSON.stringify(D)); localStorage.setItem(ZKEY,zaman||Date.now()); temaUygula(); tazele();
   }
 
   auth.onAuthStateChanged(u=>{
@@ -1001,8 +1004,14 @@ const FIREBASE_CONFIG = {
     if(!u) return;
     dinle=doc().onSnapshot(snap=>{
       const v=snap.data();
-      if(v && v.D){ if(v.D!==sonYazilan) uzaktanUygula(v.D); }
-      else { sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:Date.now()}); } // bulut boş → yereli yükle
+      if(v && v.D){
+        if(v.D!==sonYazilan){
+          // gerçek son-yazan-kazanır: yerelde henüz buluta gitmemiş daha yeni değişiklik varsa buluttakini uygulama, tersine buluta it
+          if((v.t||0) >= yerelZaman()) uzaktanUygula(v.D, v.t);
+          else { sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:yerelZaman()}); }
+        }
+      }
+      else { sonYazilan=JSON.stringify(D); doc().set({D:sonYazilan,t:yerelZaman()||Date.now()}); } // bulut boş → yereli yükle
     }, ()=>{});
   });
 
