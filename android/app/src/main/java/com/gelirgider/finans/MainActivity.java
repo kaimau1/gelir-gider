@@ -199,13 +199,23 @@ public class MainActivity extends Activity {
         web.saveState(outState);
     }
 
+    /**
+     * Geri tuşu önce sayfaya sorulur: açık pencere kapanır, Varlıklar/Hedefler/Yatırım
+     * sayfasındaysa Aylık Tablo'ya dönülür. Sayfa işlemediyse (tablodaysa) uygulamadan çıkılır.
+     */
     @Override
     public void onBackPressed() {
-        if (web != null && web.canGoBack()) {
-            web.goBack();
-        } else {
-            super.onBackPressed();
+        if (web == null) {
+            varsayilanGeri();
+            return;
         }
+        web.evaluateJavascript("(window.__geri&&window.__geri())?'1':'0'", v -> {
+            if (v == null || !v.contains("1")) varsayilanGeri();
+        });
+    }
+
+    private void varsayilanGeri() {
+        super.onBackPressed();
     }
 
     private class Bridge {

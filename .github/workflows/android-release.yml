@@ -8,6 +8,7 @@ on:
     paths:
       - 'android/**'
       - 'finans.html'
+      - 'test-*.js'
       - '.github/workflows/android-release.yml'
   workflow_dispatch:
 
@@ -24,6 +25,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Core logic tests (finans.html)
+        run: |
+          node test-eylem.js
+          node test-plan.js
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

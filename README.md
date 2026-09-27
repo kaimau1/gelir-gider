@@ -12,12 +12,27 @@ Uygulama tamamen istemci taraflı (client-side), tek dosyalık HTML sayfaları (
 `finans.html`, `android/` klasöründeki native bir **WebView** kabuğu ile Android uygulamasına dönüştürülmüştür. Uygulamanın ana fikri korunur: veriler cihazda `localStorage`'da tutulur, fiyatlar internetten çekilir, yedek al/yükle çalışır (blob dışa aktarma paylaşım menüsüne, dosya seçici de native seçiciye bağlanmıştır).
 
 ### Özellikler
+- **Alt gezinme çubuğu:** 📅 Aylık Tablo · 💰 Varlıklar · 🎯 Hedefler · 📈 Yatırım. Telefonun **geri tuşu** önce açık pencereyi kapatır, alt sayfalardan Aylık Tablo'ya döner; tablodayken uygulamadan çıkar. Tema / yedek / giriş **☰ Menü**'de.
+- **Özet kartları (tablo sütunlarıyla aynı hesap):**
+  1. **Varlıklar** — altın + döviz + borsa + TL varlıklar (Varlıklar sayfası)
+  2. **Bu ay eldeki** — eldeki nakit + bu ayın net kalanı (= tablodaki bu ayın SONUÇ'u)
+  3. **Toplam** — eldeki + varlıklar (= bu ayın TOPLAM'ı)
+  4. **Yıl sonu tahmini** — Aralık sonu TOPLAM; tablo Aralık'tan önce bitiyorsa ortalama aylık kalanla uzatılır.
+- **SONUÇ ve TOPLAM sütunları (en sağda):** SONUÇ = *eldeki nakit + bu aydan o aya kadar her ayın kalanı*; TOPLAM = SONUÇ + varlıklar. Geçmiş ayların etkisi zaten eldeki nakitte olduğu için çift sayılmaz (geçmiş satırlarda “—”). Ay dönünce uygulama “**Yeni ay: eldeki nakdi güncelle**” kutusu gösterir; biten ayın kalanını tek dokunuşla ekleyebilir ya da elle girebilirsin.
+- **Hedefler:** Ad, tutar, tarih. Hedefler üstten alta öncelikle toplam birikimden pay alır; ilerleme çubuğu, hedef tarihteki tahmini tutar (yetişiyor / şu kadar eksik), aylık gereken birikim ve tahmini ulaşma ayı gösterilir.
+- **Yatırım önerisi:** Tablodaki her ayın elde kalanını ve mevcut varlıkları okuyup ay ay **TL (mevduat) / altın / döviz / borsa** dağılımı önerir:
+  1. Önce **acil durum fonu** (varsayılan 3 ay gider) ve **12 ay içindeki hedefler** TL'de tamamlanır.
+  2. Artan para, hiçbir şey sattırmadan, seçilen profilin (Temkinli / Dengeli / Atak / Özel oran) hedef oranına en uzak kalan sınıfa yönlendirilir; 1.000 ₺ altı tutarlar nakitte birikir.
+  3. “Bu ay ne yapmalı” kartı ₺ tutarını ve yaklaşık gram / $ karşılığını verir. İstersen **🤖 Gemini'ye yorumlat** ile planı yorumlatabilirsin. *(Yatırım tavsiyesi değildir.)*
+- **Altın fiyatı = Altınkaynak ALIŞ:** Gram (ve çeyrek, yarım, tam, ata/cumhuriyet) altın, altinkaynak.com'daki **alış** fiyatından (bozdurunca eline geçecek değer) çekilir (`static.altinkaynak.com/public/Gold`, olmazsa canlı kurlar sayfası). Ulaşılamazsa Truncgil alış fiyatı kullanılır; kaynak kartta yazar.
+- **Hücrede hesap:** Hücreye `70 bin`, `1,5m`, `53.000+5.000`, `3000*12` yazabilirsin. Varlık adedinde `12.5` ve `12,5` ikisi de 12,5 gram olur.
+- **Varlık türü “Mevduat / Fon (TL)”:** vadeli mevduat, para piyasası fonu gibi TL varlıklar (yatırım önerisinde TL sayılır).
 - **Sesli / yazılı komut (Gemini):** Tablonun üstündeki kutuya yazarak veya 🎤 ile söyleyerek tabloyu değiştirebilirsin: *"spor salonu diye gider aç, her aya 3000 yaz"*, *"kirayı ekimden itibaren 70 bin yap"*, *"aidat sütununu sil"*. Ses→metin **cihazda ücretsiz** yapılır (uygulamada Android konuşma tanıma, tarayıcıda Web Speech); Gemini'ye yalnızca kısa metin + tablo özeti gider. Yapılan değişiklik **↩ Geri al** ile tek dokunuşta geri alınır.
   - Kurulum: [aistudio.google.com/apikey](https://aistudio.google.com/apikey) adresinden ücretsiz API key al → **⚙ Ayarlar → Gemini API key**'e yapıştır → model listesi otomatik çekilir, birini seç (varsayılan: bir *flash* modeli). Key yalnızca cihazda (localStorage) durur, depoya girmez.
-  - Komut mantığının kontrolü: `node test-eylem.js`
+  - Komut mantığının kontrolü: `node test-eylem.js` · özet/hedef/yatırım/fiyat mantığı: `node test-plan.js` (CI'da APK'dan önce çalışır)
 - **Sütun taşıma:** Başlıktaki `‹ ›` ile gelir/gider kalemlerinin sırasını değiştirebilirsin.
 - **Tarihli girdiler:** Bir hücreye dokununca aynı ay içinde farklı günlerde (ör. 10, 15, 30) ayrı ayrı gelir/gider satırları ekleyebilirsin; hücre bunların toplamını gösterir.
-- **Açılış bakiyesi (devir):** Elde kalan/birikim başlangıcı elle ayarlanabilir; "Elde Kalan" sütunu geniş ve belirgindir.
+- **Eldeki nakit:** Bugün elindeki nakit; SONUÇ bunun üstüne bu aydan itibaren kalanları ekler.
 - **Kayan ay penceresi:** Tablo bugüne göre otomatik kayar. Kaç ay **geri** ve kaç ay **ileri** görüneceği ayarlanabilir (ör. 1 ay geri + 12 ay ileri; istenirse 3 ay veya 15 ay).
 - **Gün bazlı kalan dökümü:** Her kaleme sabit bir gün atanır (tüm aylara uygulanır); "Elde Kalan"a dokununca o ayın günlük (10'unda / 15'inde / 30'unda) kalan dökümü çıkar.
 - **Serbest sütun sırası:** Kalem sütunları ve özet sütunları (GELİR/GİDER/Elde Kalan/SONUÇ) `‹ ›` ile istenen sıraya taşınır.
