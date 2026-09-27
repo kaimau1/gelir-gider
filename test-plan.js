@@ -141,6 +141,21 @@ assert.deepStrictEqual(ak.GRA, { alis: 6653.32, satis: 6770.28 });
 assert.strictEqual(ak.CEYREKALTIN.alis, 10850);
 assert.strictEqual(ak.CUMHURIYETALTINI.alis, 44000);
 assert.strictEqual(ak.ATAALTIN.alis, 44000);
+/* Altınkaynak'ın gerçek kodları: PGA = sitedeki "Gram Altın" satırı (perakende). Toptan (GAT/HH_T) karışmamalı,
+   açıklama farklı yazılsa bile kod belirleyici */
+const akGercek = M.akAyristir(JSON.stringify([
+  { Kod: 'HH_T', Aciklama: 'Has Toptan', Alis: '6.685,42', Satis: '6.734,27', GuncellenmeZamani: '27.09.2026 21:58:00' },
+  { Kod: 'CH_T', Aciklama: 'Külçe Toptan', Alis: '6.651,99', Satis: '6.700,60' },
+  { Kod: 'GAT', Aciklama: 'Gram Toptan', Alis: '6.640,00', Satis: '6.700,00' },
+  { Kod: 'PGA', Aciklama: 'Gram', Alis: '6.653,32', Satis: '6.770,28' },
+  { Kod: 'PC', Aciklama: 'Çeyrek', Alis: '10.850,00', Satis: '11.100,00' },
+  { Kod: 'EC', Aciklama: 'Eski Çeyrek', Alis: '10.700,00', Satis: '10.950,00' },
+  { Kod: 'PA', Aciklama: 'Ata Cumhuriyet', Alis: '44.000,00', Satis: '45.000,00' },
+  { Kod: 'XAUUSD', Aciklama: 'Ons', Alis: '4.284,63', Satis: '4.284,63' }
+]));
+assert.deepStrictEqual(akGercek.GRA, { alis: 6653.32, satis: 6770.28 }, 'PGA = Gram Altın alış');
+assert.strictEqual(akGercek.CEYREKALTIN.alis, 10850, 'PC, eski çeyrek (EC) değil');
+assert.strictEqual(akGercek.ATAALTIN.alis, 44000);
 /* açıklama farklı yazılsa bile Kod "GA" gram altındır */
 assert.strictEqual(M.akAyristir([{ Kod: 'GA', Aciklama: 'Gram Altın (24 Ayar)', Alis: '6.653,32', Satis: '6.770,28' }]).GRA.alis, 6653.32);
 assert.strictEqual(M.akAyristir('<html>Cloudflare</html>'), null);

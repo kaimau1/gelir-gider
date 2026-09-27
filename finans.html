@@ -433,7 +433,10 @@ function ifadeSayi(v){
 function fiyatSayi(v){if(typeof v==='number')return isFinite(v)?v:0;const n=sayiParca(String(v??'').replace(/[^\d.,]/g,''));return isFinite(n)?n:0;}
 
 /* ==== ALTINKAYNAK: gram (ve diğer) altın ALIŞ fiyatı ==== */
-/* JSON: [{Kod,Aciklama,Alis,Satis,...}] (static.altinkaynak.com/public/Gold) */
+/* JSON: [{Kod,Aciklama,Alis,Satis,...}] (static.altinkaynak.com/public/Gold).
+   Kodlar sitedeki satırlarla aynı: PGA = "Gram Altın" (perakende; canli-kurlar/altin'deki Alış/Satış),
+   GAT = Gram Toptan, HH_T = Has Toptan (toptanlar kullanılmaz). Kod tanınmazsa açıklamadan eşlenir. */
+const AK_KOD={PGA:['GRA'],GA:['GRA'],PC:['CEYREKALTIN'],PY:['YARIMALTIN'],PT:['TAMALTIN'],PA:['CUMHURIYETALTINI','ATAALTIN'],AG_T:['GUMUS']};
 const AK_ESLE=[
   ['GRA',/^gram alt[ıi]n(?![a-zçğıöşü])/],
   ['CEYREKALTIN',/^[çc]eyrek/],
@@ -444,11 +447,11 @@ const AK_ESLE=[
   ['GUMUS',/^g[üu]m[üu][şs]/]
 ];
 function akKodlar(ad,kod){
+  const k=String(kod||'').trim().toUpperCase();
+  if(AK_KOD[k])return AK_KOD[k];
   const s=String(ad||'').toLocaleLowerCase('tr').replace(/\s+/g,' ').trim();
-  const ga=String(kod||'').toUpperCase()==='GA'?['GRA']:[];
-  if(/eski|toptan|be[şs]li|gremse|re[şs]at|hamit|ayar|has|k[üu]l[çc]e|ons/.test(s))return ga;
-  const out=AK_ESLE.filter(e=>e[1].test(s)).map(e=>e[0]);
-  return out.length?out:ga;
+  if(!s||/eski|toptan|be[şs]li|gremse|re[şs]at|hamit|ayar|has|k[üu]l[çc]e|ons/.test(s))return [];
+  return AK_ESLE.filter(e=>e[1].test(s)).map(e=>e[0]);
 }
 function akAyristir(txt){
   let j;try{j=typeof txt==='string'?JSON.parse(txt):txt;}catch(e){return null;}
