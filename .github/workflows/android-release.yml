@@ -39,6 +39,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Varsayılan "tools" paketi yeni cmdline-tools (16.0) ile artık yok → kurulum düşüyordu.
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
 
       - name: Install SDK packages
         run: |
