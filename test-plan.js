@@ -36,12 +36,15 @@ function ornek() {
 let d = ornek();
 d.kolonlar = ['maas', '@gelir', '@sonuc', 'kira', '@gider', '@kalan'];
 let k = M.kolonDuzelt(d);
-assert.deepStrictEqual(k.slice(-2), ['@sonuc', '@toplam'], 'SONUÇ ve TOPLAM en sağda');
+assert.deepStrictEqual(k.slice(-3), ['@sonuc', '@toplam', '@toplamd'], 'SONUÇ, TOPLAM ve TOPLAM (döviz) en sağda');
 assert.strictEqual(d.kolonV, 2);
 M.kolonTasi(d, d.kolonlar.indexOf('@toplam'), -1);          // kullanıcı sonradan taşıyabilir
 k = M.kolonDuzelt(d);
-assert.deepStrictEqual(k.slice(-2), ['@toplam', '@sonuc'], 'migrasyon ikinci kez çalışmamalı');
-assert.deepStrictEqual(M.kolonDuzelt(M.SEED && JSON.parse(JSON.stringify(M.SEED))).slice(-2), ['@sonuc', '@toplam']);
+assert.deepStrictEqual(k.slice(-3), ['@toplam', '@sonuc', '@toplamd'], 'migrasyon ikinci kez çalışmamalı');
+assert.deepStrictEqual(M.kolonDuzelt(M.SEED && JSON.parse(JSON.stringify(M.SEED))).slice(-3), ['@sonuc', '@toplam', '@toplamd']);
+/* eski kayıt (TOPLAM döviz yok): TOPLAM'ın hemen sağına eklenir */
+d = ornek(); d.kolonV = 2; d.kolonlar = ['maas', '@toplam', '@sonuc', 'kira', '@gelir', '@gider', '@kalan'];
+assert.deepStrictEqual(M.kolonDuzelt(d).slice(0, 4), ['maas', '@toplam', '@toplamd', '@sonuc']);
 
 /* 2) SONUÇ = eldeki nakit + bu aydan itibaren kalanlar; geçmiş ay null */
 d = ornek();
@@ -181,5 +184,61 @@ assert.strictEqual(I('(2+3)*1000'), 5000);
 assert.strictEqual(I(''), 0);
 assert.strictEqual(I(4500), 4500);
 assert.strictEqual(M.fiyatSayi('6.653,32'), 6653.32);
+
+/* 9) Döviz / altın hücreleri: hesaplar güncel kurla TL'ye çevrilir */
+M.kurAyarla({ USD: { alis: 40, satis: 41 }, EUR: { alis: 45, satis: 46 }, GRA: { alis: 5800, satis: 5900 } });
+assert.strictEqual(M.kurTL('USD'), 41, 'döviz = satış');
+assert.strictEqual(M.kurTL('GRA'), 5800, 'gram altın = alış (Varlıklar ile aynı)');
+assert.deepStrictEqual(M.birimAyir('100$'), { s: '100', b: 'USD' });
+assert.deepStrictEqual(M.birimAyir('50 euro'), { s: '50', b: 'EUR' });
+assert.deepStrictEqual(M.birimAyir('2,5 gr'), { s: '2,5', b: 'GRA' });
+assert.deepStrictEqual(M.birimAyir('70 bin tl'), { s: '70 bin', b: 'TL' });
+assert.strictEqual(M.cellSum(M.hucreOku('70 bin tl')), 70000);
+assert.deepStrictEqual(M.hucreOku('1,5 bin dolar'), { a: 1500, b: 'USD', k: 41 }, 'bin + dolar');
+assert.deepStrictEqual(M.hucreOku('100 $'), { a: 100, b: 'USD', k: 41 });
+assert.deepStrictEqual(M.hucreOku('2,5', 'GRA'), { a: 2.5, b: 'GRA', k: 5800 }, 'sütun birimi varsayılan');
+assert.strictEqual(M.hucreOku('3000 tl', 'USD'), 3000, 'yazıdaki birim önce gelir');
+assert.strictEqual(M.hucreOku('', 'USD'), 0);
+assert.strictEqual(M.hucreYazi({ a: 2.5, b: 'GRA' }), '2,5 gr');
+assert.strictEqual(M.hucreYazi(4500), '4.500');
+d = ornek();
+d.vals['2026-8'] = { maas: { a: 2000, b: 'USD', k: 39 }, kira: { a: 5, b: 'GRA' } };
+assert.deepStrictEqual(M.ayToplam(d, 2026, 8), { gelir: 82000, gider: 29000, kalan: 53000 }, '2000×41 − 5×5800');
+M.kurAyarla({});
+assert.strictEqual(M.cellSum({ a: 2000, b: 'USD', k: 39 }), 78000, 'kur yoksa girişteki kur');
+assert.strictEqual(M.cellSum({ a: 5, b: 'GRA' }), 0, 'hiç kur yoksa 0');
+assert.strictEqual(M.birimden(1000, 'USD'), null);
+M.kurAyarla({ USD: { satis: 40 } });
+assert.strictEqual(M.birimden(1000, 'USD'), 25);
+M.kurAyarla({});
+
+/* 10) Hisse: maliyet, kâr, arındırma */
+const bugun = new Date(2026, 9, 18);
+let h = M.hisseOzet({ tip: 'hisse', adet: 100, maliyet: 200, fiyat: 250, alimTarih: '2026-10-08', arOran: 5, temettu: 400, arOdenen: 100 }, bugun);
+assert.strictEqual(h.maliyet, 20000);
+assert.strictEqual(h.deger, 25000);
+assert.strictEqual(h.kar, 5000);
+yakin(h.karYuzde, 0.25);
+assert.strictEqual(h.gun, 10);
+assert.strictEqual(h.yontem, 'kar');
+yakin(h.arindir, (5000 + 400) * 0.05, 'kâr+temettü × oran');
+yakin(h.arKalan, 270 - 100);
+h = M.hisseOzet({ adet: 100, maliyet: 300, fiyat: 250, arOran: 5, arYontem: 'kar' }, bugun);
+assert.strictEqual(h.kar, -5000);
+assert.strictEqual(h.arindir, 0, 'zararda kâr arındırması yok');
+h = M.hisseOzet({ adet: 100, maliyet: 300, fiyat: 250, arOran: 2, arYontem: 'deger' }, bugun);
+yakin(h.arindir, 500, 'değer × oran');
+h = M.hisseOzet({ adet: 100, fiyat: 250, arOran: 10, arYontem: 'temettu', temettu: 1000 }, bugun);
+yakin(h.arindir, 100);
+assert.strictEqual(h.gun, null);
+const ht = M.hisseToplam({ assets: [
+  { tip: 'hisse', adet: 10, maliyet: 100, fiyat: 150, arOran: 10 },
+  { tip: 'hisse', adet: 10, fiyat: 50 },
+  { tip: 'altin', adet: 1, fiyat: 6000 }] }, bugun);
+assert.strictEqual(ht.adet, 2);
+assert.strictEqual(ht.deger, 2000);
+assert.strictEqual(ht.maliyet, 1000, 'maliyeti girilmeyen hisse kâra katılmaz');
+assert.strictEqual(ht.kar, 500);
+yakin(ht.arindir, 50);
 
 console.log('✓ tüm plan/özet/hedef/yatırım kontrolleri geçti');
