@@ -289,16 +289,40 @@ function hucreYazi(v){
 /* ==== HİSSE: alım tarihi, maliyet, kâr/zarar, arındırma ====
    Arındırılacak tutar = taban × arındırma oranı (%). Taban yönteme göre:
    kar = pozitif kâr (+ alınan temettü) · deger = güncel piyasa değeri · temettu = yalnızca alınan temettü. */
-const ARYONTEM={kar:'Kâr (+ temettü) üzerinden',deger:'Piyasa değeri üzerinden',temettu:'Yalnızca temettü üzerinden'};
+const ARYONTEM={gam:'GAM × gün × lot (Katılım Bot)',kar:'Kâr (+ temettü) × oran',deger:'Piyasa değeri × oran',temettu:'Yalnızca temettü × oran'};
+/* GAM çok küçük ondalıktır (binlik ayırıcı yok): "0,0038120150" ve "0.0038120150" aynı */
+function gamSayi(v){const n=parseFloat(String(v??'').trim().replace(',','.'));return isFinite(n)&&n>0?n:0;}
+/* Yöntem seçilmemişse: oran girilmişse eski varsayılan (kâr), yoksa GAM */
+const arYon=a=>ARYONTEM[a.arYontem]?a.arYontem:(num(a.arOran)?'kar':'gam');
+/* 'YYYY-MM-DD' → UTC gün numarası (yoksa null) */
+function gunNo(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));return m?Math.round(Date.UTC(+m[1],+m[2]-1,+m[3])/864e5):null;}
+/* GAM (Günlük Arındırma Miktarı, lot başına TL): TAM = Σ gün × o günün GAM'ı × lot. Alış ve satış günü dahil
+   (11.10–20.10 = 10 gün). Dönemler (ör. 2025/2) "geçerli ilk gün"e göre sıralanır; her gün en son başlamış
+   dönemin GAM'ı kullanılır, ilk gün boşsa en baştan geçerlidir. Sonuç, Katılım Bot gibi kuruşa yukarı yuvarlanır. */
+function gamHesap(a,bugun){
+  const bas=gunNo(a.alimTarih),son=gunNo(a.satisTarih)??(bugun?Math.round(Date.UTC(bugun.getFullYear(),bugun.getMonth(),bugun.getDate())/864e5):null);
+  const L=(Array.isArray(a.gamlar)?a.gamlar:[]).map(g=>({bas:gunNo(g.bas)??-Infinity,gam:gamSayi(g.gam),donem:g.donem||''})).filter(g=>g.gam>0).sort((x,y)=>x.bas-y.bas);
+  if(bas==null||son==null||son<bas||!L.length)return null;
+  const parca=[];let top=0;
+  for(let i=0;i<L.length;i++){
+    const g0=Math.max(bas,L[i].bas),g1=Math.min(son,i+1<L.length?L[i+1].bas-1:son);
+    if(g1<g0)continue;
+    const gun=g1-g0+1;top+=gun*L[i].gam;parca.push({donem:L[i].donem,gam:L[i].gam,gun});
+  }
+  const lot=num(a.adet),tam=Math.ceil(Math.round(top*lot*1e6)/1e4)/100;
+  return {gun:son-bas+1,lot,tam,parca};
+}
 function hisseOzet(a,bugun){
   const adet=num(a.adet),maliyet=adet*num(a.maliyet),deger=adet*num(a.fiyat),kar=deger-maliyet;
-  const oran=Math.max(0,Math.min(100,num(a.arOran)))/100,tem=Math.max(0,num(a.temettu)),yon=ARYONTEM[a.arYontem]?a.arYontem:'kar';
-  const taban=yon==='deger'?deger:yon==='temettu'?tem:Math.max(0,kar)+tem;
-  const arindir=taban*oran,odenen=Math.max(0,num(a.arOdenen));
+  const oran=Math.max(0,Math.min(100,num(a.arOran)))/100,tem=Math.max(0,num(a.temettu)),yon=arYon(a);
+  const gh=yon==='gam'?gamHesap(a,bugun):null;
+  const taban=yon==='gam'?(gh?gh.gun:0):yon==='deger'?deger:yon==='temettu'?tem:Math.max(0,kar)+tem;
+  const arindir=yon==='gam'?(gh?gh.tam:0):taban*oran,odenen=Math.max(0,num(a.arOdenen));
   let gun=null;
-  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(a.alimTarih||''));
-  if(m&&bugun){const t0=Date.UTC(+m[1],+m[2]-1,+m[3]),t1=Date.UTC(bugun.getFullYear(),bugun.getMonth(),bugun.getDate());gun=Math.max(0,Math.round((t1-t0)/864e5));}
-  return {maliyet,deger,kar,karYuzde:maliyet?kar/maliyet:null,gun,yontem:yon,oran,taban,arindir,odenen,arKalan:Math.max(0,arindir-odenen)};
+  const t0=gunNo(a.alimTarih);
+  if(t0!=null&&bugun){const t1=gunNo(a.satisTarih)??Math.round(Date.UTC(bugun.getFullYear(),bugun.getMonth(),bugun.getDate())/864e5);gun=Math.max(0,t1-t0);}
+  if(gh)gun=gh.gun; /* GAM: alış ve satış günü dahil (Katılım Bot ile aynı) */
+  return {maliyet,deger,kar,karYuzde:maliyet?kar/maliyet:null,gun,yontem:yon,oran,taban,arindir,odenen,arKalan:Math.max(0,arindir-odenen),gam:gh};
 }
 function hisseToplam(d,bugun){
   const t={maliyet:0,deger:0,kar:0,arindir:0,arKalan:0,adet:0};
@@ -701,7 +725,7 @@ const SEED={
   ]
 };
 if(typeof module!=='undefined')module.exports={AYLAR,AYKISA,OZEL,OZELAD,num,cellSum,itemGun,ayToplam,ayIdx,idxAy,birikim,kalanDetay,gunListesi,gunKalani,kolonAd,pencereAylar,pencereToplam,kolonDuzelt,kolonTasi,varlikDeger,varlikToplam,varlikKategori,SEED,kalemBul,ayAnahtar,eylemleriUygula,
-  sayiParca,ifadeSayi,fiyatSayi,BIRIMLER,BIRIMSEM,kurAyarla,kurTL,dvzMi,hucreBirim,hucreMiktar,birimden,birimAyir,hucreOku,hucreYazi,hisseOzet,hisseToplam,ARYONTEM,akKodlar,akAyristir,akHtmlAyristir,sonVeriIdx,ortAylikKalan,tahminiToplam,ozetHesap,hedefAy,hedefDurum,PROFILLER,yatirimAyar,yatirimPlani};
+  sayiParca,ifadeSayi,fiyatSayi,BIRIMLER,BIRIMSEM,kurAyarla,kurTL,dvzMi,hucreBirim,hucreMiktar,birimden,birimAyir,hucreOku,hucreYazi,hisseOzet,hisseToplam,ARYONTEM,gunNo,gamHesap,gamSayi,akKodlar,akAyristir,akHtmlAyristir,sonVeriIdx,ortAylikKalan,tahminiToplam,ozetHesap,hedefAy,hedefDurum,PROFILLER,yatirimAyar,yatirimPlani};
 </script>
 
 <header>
@@ -1221,7 +1245,7 @@ function kodSecenek(a){
    Yapı aynıysa ve odak listedeki bir yazı kutusundaysa yalnızca hesaplanan kısımlar güncellenir. */
 function kismiMi(kap,ids){const ae=document.activeElement;return kap.dataset.ids===ids&&!!ae&&ae.tagName==='INPUT'&&kap.contains(ae);}
 function renderVarlik(){
-  const kap=el('vtablo'),ids=D.assets.map(a=>a.id+':'+a.tip).join(',');
+  const kap=el('vtablo'),ids=D.assets.map(a=>a.id+':'+a.tip+(a.tip==='hisse'?':'+(a.arYontem||'')+':'+((a.gamlar||[]).length):'')).join(',');
   if(kismiMi(kap,ids)){
     for(const a of D.assets){
       const k=kap.querySelector(`[data-vdeger="${a.id}"]`);if(k)k.textContent=tl(varlikDeger(a));
@@ -1261,16 +1285,30 @@ function renderVarlik(){
 function varlikBul(id){return D.assets.find(a=>a.id===id);}
 /* Hisse: alım tarihi, maliyet, arındırma oranı/yöntemi, temettü, ödenen arındırma */
 function hisseAlanlari(a){
-  const f=v=>v?TL2.format(v):'';
-  return `<div class="vkart-grid" style="margin-top:8px">
-      <div class="vkart-alan"><span class="et">Alım tarihi</span><input type="date" data-valim="${a.id}" value="${esc(a.alimTarih||'')}" aria-label="Alım tarihi"></div>
-      <div class="vkart-alan"><span class="et">Maliyet ₺ (hisse başı)</span><input class="sag" inputmode="decimal" data-vmaliyet="${a.id}" value="${f(num(a.maliyet))}" placeholder="alış fiyatı" aria-label="Maliyet"></div>
-      <div class="vkart-alan"><span class="et">Arındırma oranı %</span><input class="sag" inputmode="decimal" data-varoran="${a.id}" value="${a.arOran?TL2.format(a.arOran):''}" placeholder="ör. 3,5" aria-label="Arındırma oranı"></div>
-      <div class="vkart-alan"><span class="et">Arındırma yöntemi</span><select data-varyon="${a.id}" aria-label="Arındırma yöntemi">${Object.keys(ARYONTEM).map(k=>`<option value="${k}"${(a.arYontem||'kar')===k?' selected':''}>${ARYONTEM[k]}</option>`).join('')}</select></div>
-      <div class="vkart-alan"><span class="et">Alınan temettü ₺ (toplam)</span><input class="sag" inputmode="decimal" data-vtemettu="${a.id}" value="${f(num(a.temettu))}" aria-label="Alınan temettü"></div>
-      <div class="vkart-alan"><span class="et">Ödenen arındırma ₺</span><input class="sag" inputmode="decimal" data-varodenen="${a.id}" value="${f(num(a.arOdenen))}" aria-label="Ödenen arındırma"></div>
-    </div><div class="hozet" data-vhisse="${a.id}">${hisseHtml(a)}</div>
-    <a class="btn kucuk" href="https://t.me/KatilimBot" target="_blank" rel="noopener" data-katbot="${esc(a.kod||'')}" style="display:inline-block;margin-top:8px;text-decoration:none">🤖 Arındırma oranını Katılım Bot'ta sor${a.kod?' ('+esc(a.kod)+')':''}</a>`;
+  const f=v=>v?TL2.format(v):'',yon=arYon(a);
+  const alan=(et,ic,genis)=>`<div class="vkart-alan${genis?' genis':''}"><span class="et">${et}</span>${ic}</div>`;
+  let h=`<div class="vkart-grid" style="margin-top:8px">`
+    +alan('Alım tarihi',`<input type="date" data-valim="${a.id}" value="${esc(a.alimTarih||'')}" aria-label="Alım tarihi">`)
+    +alan('Maliyet ₺ (hisse başı)',`<input class="sag" inputmode="decimal" data-vmaliyet="${a.id}" value="${f(num(a.maliyet))}" placeholder="alış fiyatı" aria-label="Maliyet">`)
+    +alan('Arındırma yöntemi',`<select data-varyon="${a.id}" aria-label="Arındırma yöntemi">${Object.keys(ARYONTEM).map(k=>`<option value="${k}"${yon===k?' selected':''}>${ARYONTEM[k]}</option>`).join('')}</select>`,true);
+  if(yon==='gam'){
+    h+=alan('Satış tarihi (boş = bugün)',`<input type="date" data-vsatis="${a.id}" value="${esc(a.satisTarih||'')}" aria-label="Satış tarihi">`)
+      +alan('Ödenen arındırma ₺',`<input class="sag" inputmode="decimal" data-varodenen="${a.id}" value="${f(num(a.arOdenen))}" aria-label="Ödenen arındırma">`)+`</div>`;
+    const L=a.gamlar&&a.gamlar.length?a.gamlar:[{donem:'',bas:'',gam:''}];
+    h+=`<div class="not" style="margin:8px 0 4px">GAM (lot başına günlük arındırma, TL) — Katılım Bot'un “Günlük Arındırma (GAM)” satırı. Dönem değişince yeni satır ekle.</div>`
+      +L.map((g,k)=>`<div style="display:grid;grid-template-columns:1fr 1.3fr 1.4fr auto;gap:6px;margin:4px 0">`
+        +`<input data-vgamdonem="${a.id}:${k}" value="${esc(g.donem||'')}" placeholder="dönem 2025/2" aria-label="Dönem">`
+        +`<input type="date" data-vgambas="${a.id}:${k}" value="${esc(g.bas||'')}" title="Bu GAM'ın geçerli olduğu ilk gün (boş = en baştan)" aria-label="Geçerli ilk gün">`
+        +`<input class="sag" inputmode="decimal" data-vgam="${a.id}:${k}" value="${g.gam?esc(String(g.gam).replace('.',',')):''}" placeholder="0,0038120150" aria-label="GAM">`
+        +`<button class="btn kucuk" data-vgamsil="${a.id}:${k}" aria-label="Dönemi sil">×</button></div>`).join('')
+      +`<button class="btn kucuk" data-vgamekle="${a.id}" style="margin-top:4px">+ Dönem</button>`;
+  }else{
+    h+=alan('Arındırma oranı %',`<input class="sag" inputmode="decimal" data-varoran="${a.id}" value="${a.arOran?TL2.format(a.arOran):''}" placeholder="ör. 3,5" aria-label="Arındırma oranı">`)
+      +alan('Alınan temettü ₺ (toplam)',`<input class="sag" inputmode="decimal" data-vtemettu="${a.id}" value="${f(num(a.temettu))}" aria-label="Alınan temettü">`)
+      +alan('Ödenen arındırma ₺',`<input class="sag" inputmode="decimal" data-varodenen="${a.id}" value="${f(num(a.arOdenen))}" aria-label="Ödenen arındırma">`)+`</div>`;
+  }
+  return h+`<div class="hozet" data-vhisse="${a.id}">${hisseHtml(a)}</div>
+    <a class="btn kucuk" href="https://t.me/KatilimBot" target="_blank" rel="noopener" data-katbot="${esc(a.kod||'')}" style="display:inline-block;margin-top:8px;text-decoration:none">🤖 ${yon==='gam'?'GAM\'ı':'Arındırma oranını'} Katılım Bot'ta sor${a.kod?' ('+esc(a.kod)+')':''}</a>`;
 }
 function hisseHtml(a){
   const h=hisseOzet(a,SIMDI),r=n=>TL.format(Math.round(n));
@@ -1281,7 +1319,16 @@ function hisseHtml(a){
     t+=`<div>Maliyet <b>${tl(h.maliyet)}</b> → değer <b>${tl(h.deger)}</b> · ${h.kar>=0?'Kâr':'Zarar'} <b class="${h.kar<0?'kirmizi':'yesil'}">${isaretli(h.kar)}${yz}</b></div>`;
   }
   if(h.gun!=null){const yil=h.gun>=365?` (${TL1.format(h.gun/365)} yıl)`:'';t+=`<div>Elde tutma: <b>${h.gun} gün</b>${yil} · alım ${new Date(a.alimTarih+'T00:00').toLocaleDateString('tr-TR')}</div>`;}
-  if(h.oran>0){
+  if(h.yontem==='gam'){
+    const g=h.gam;
+    if(!g)t+=`<div class="soluk">Alım tarihi ve GAM girilince arındırılacak tutar (TAM = GAM × gün × lot) hesaplanır.</div>`;
+    else{
+      const det=g.parca.map(p=>`${p.donem?esc(p.donem)+': ':''}${String(p.gam).replace('.',',')} × ${p.gun} gün`).join(' + ');
+      t+=`<div>Arındırılacak (TAM): <b>${TL2.format(g.tam)} ₺</b> <span class="soluk">(${det} × ${TL.format(g.lot)} lot${a.satisTarih?'':' · bugüne kadar'})</span>`
+        +(h.odenen?` · ödenen ${TL2.format(h.odenen)} · kalan <b class="${h.arKalan>0.005?'kirmizi':'yesil'}">${TL2.format(h.arKalan)} ₺</b>`:'')
+        +(h.arKalan>0.005?` <button class="btn kucuk" data-vodendi="${a.id}" style="min-height:28px;padding:2px 8px">✓ Ödendi</button>`:' <b class="yesil">✓</b>')+`</div>`;
+    }
+  }else if(h.oran>0){
     const taban=h.yontem==='deger'?'değer':h.yontem==='temettu'?'temettü':'kâr'+(num(a.temettu)?'+temettü':'');
     t+=`<div>Arındırılacak: <b>${tl(h.arindir)}</b> <span class="soluk">(${taban} ${r(h.taban)} × %${TL2.format(h.oran*100)})</span>`
       +(h.odenen?` · ödenen ${r(h.odenen)} · kalan <b class="${h.arKalan>0.5?'kirmizi':'yesil'}">${tl(h.arKalan)}</b>`:'')
@@ -1695,11 +1742,13 @@ function temaUygula(){document.documentElement.dataset.tema=D.tema;}
 
 document.addEventListener('click',e=>{
   if(!el('menuPanel').classList.contains('gizli')&&!e.target.closest('#menuBtn')&&(!e.target.closest('#menuPanel')||e.target.closest('#menuPanel .btn')))menuKapat();
-  const t=e.target.closest('[data-menu],[data-kact],[data-goster],[data-item],[data-adla],[data-vsil],[data-kalan],[data-git],[data-hyon],[data-hsil],[data-gb],[data-tdb],[data-vodendi],.sekme')||e.target;
+  const t=e.target.closest('[data-menu],[data-kact],[data-goster],[data-item],[data-adla],[data-vsil],[data-kalan],[data-git],[data-hyon],[data-hsil],[data-gb],[data-tdb],[data-vodendi],[data-vgamekle],[data-vgamsil],.sekme')||e.target;
   const ds=t.dataset||{};
   if(ds.git)return sekmeAc(ds.git);
   if(ds.gb){GB=ds.gb;uiKaydet({gb:GB});if(GB!=='TL'&&!kurTL(GB))toast(BIRIMAD[GB]+' kuru yok — Varlıklar → Fiyatları Güncelle');renderTablo();return;}
   if(ds.tdb){const L=BIRIMLER.slice(1);D.toplamBirim=L[(L.indexOf(D.toplamBirim)+1)%L.length];kaydet();renderTablo();return;}
+  if(ds.vgamekle){const a=varlikBul(ds.vgamekle);if(a){a.gamlar=(a.gamlar&&a.gamlar.length?a.gamlar:[{donem:'',bas:'',gam:0}]).concat([{donem:'',bas:'',gam:0}]);kaydet();tazele();}return;}
+  if(ds.vgamsil){const [id,k]=ds.vgamsil.split(':'),a=varlikBul(id);if(a&&a.gamlar){a.gamlar.splice(+k,1);kaydet();tazele();}return;}
   if(ds.vodendi){const a=varlikBul(ds.vodendi);if(a){a.arOdenen=Math.round(hisseOzet(a,SIMDI).arindir*100)/100;kaydet();tazele();toast('Arındırma ödendi olarak işaretlendi');}return;}
   if(ds.hsil){const h=hedefBul(ds.hsil);if(h&&confirm(`"${h.ad||'Hedef'}" silinsin mi?`)){D.hedefler=D.hedefler.filter(x=>x!==h);kaydet();tazele();}return;}
   if(ds.hyon){const L=D.hedefler||[],i=L.findIndex(h=>h.id===ds.hid),j=i+(+ds.hyon);
@@ -1733,7 +1782,7 @@ document.addEventListener('click',e=>{
 /* Katılım Bot (Telegram): hisse kodunu panoya kopyala, bağlantı Telegram'ı açar; oranı karta elle yazarsın */
 document.addEventListener('click',e=>{
   const t=e.target.closest&&e.target.closest('[data-katbot]');if(!t||!t.dataset.katbot)return;
-  try{navigator.clipboard.writeText(t.dataset.katbot).then(()=>toast(t.dataset.katbot+' panoya kopyalandı — Katılım Bot\'a yapıştır, çıkan oranı “Arındırma oranı %”ya yaz'),()=>{});}catch(x){}
+  try{navigator.clipboard.writeText(t.dataset.katbot).then(()=>toast(t.dataset.katbot+' panoya kopyalandı — Katılım Bot\'a yapıştır (/arindir), çıkan GAM\'ı karta yaz'),()=>{});}catch(x){}
 });
 document.addEventListener('change',e=>{
   const t=e.target,ds=t.dataset;
@@ -1746,7 +1795,13 @@ document.addEventListener('change',e=>{
     kaydet();tazeleSonra();return;}
   if(ds.yoran){const y=yatirimAyar(D),o={};SINIFLAR.forEach(c=>o[c]=Math.round(y.w[c]*100));o[ds.yoran]=Math.max(0,Math.min(100,ifadeSayi(t.value)));
     yatirimGuncelle({oran:o});return;}
-  const vid=ds.vad||ds.vtip||ds.vkod||ds.vadet||ds.vfiyat||ds.valim||ds.vmaliyet||ds.varoran||ds.varyon||ds.vtemettu||ds.varodenen;
+  const gref=ds.vgam||ds.vgambas||ds.vgamdonem;
+  if(gref){const [id,k]=gref.split(':'),a=varlikBul(id);if(!a)return;
+    a.gamlar=a.gamlar&&a.gamlar.length?a.gamlar:[{donem:'',bas:'',gam:0}];const g=a.gamlar[+k];if(!g)return;
+    if(ds.vgam)g.gam=gamSayi(t.value);
+    else if(ds.vgambas)g.bas=t.value;else g.donem=t.value.trim().slice(0,20);
+    kaydet();tazeleSonra();return;}
+  const vid=ds.vad||ds.vtip||ds.vkod||ds.vadet||ds.vfiyat||ds.valim||ds.vmaliyet||ds.varoran||ds.varyon||ds.vtemettu||ds.varodenen||ds.vsatis;
   const a=vid?varlikBul(vid):null;
   if(!a)return;
   if(ds.vad)a.name=t.value.trim()||a.name;
@@ -1755,6 +1810,7 @@ document.addEventListener('change',e=>{
   else if(ds.vadet)a.adet=ifadeSayi(t.value);
   else if(ds.vfiyat){a.fiyat=ifadeSayi(t.value);a.kaynak='elle';}
   else if(ds.valim)a.alimTarih=t.value;
+  else if(ds.vsatis)a.satisTarih=t.value;
   else if(ds.vmaliyet)a.maliyet=Math.max(0,ifadeSayi(t.value));
   else if(ds.varoran)a.arOran=Math.max(0,Math.min(100,ifadeSayi(t.value.replace('%',''))));
   else if(ds.varyon)a.arYontem=t.value;

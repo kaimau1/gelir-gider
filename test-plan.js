@@ -241,4 +241,23 @@ assert.strictEqual(ht.maliyet, 1000, 'maliyeti girilmeyen hisse kâra katılmaz'
 assert.strictEqual(ht.kar, 500);
 yakin(ht.arindir, 50);
 
+/* 11) GAM (Katılım Bot): TAM = GAM × gün × lot, alış ve satış günü dahil, kuruşa yukarı */
+assert.strictEqual(M.gamSayi('0.0038120150'), 0.003812015, 'noktalı GAM binlik sayılmaz');
+assert.strictEqual(M.gamSayi('0,0038120150'), 0.003812015);
+let g = M.gamHesap({ adet: 100, alimTarih: '2025-10-11', satisTarih: '2025-10-20', gamlar: [{ donem: '2025/2', bas: '', gam: '0,0038120150' }] }, bugun);
+assert.strictEqual(g.gun, 10, '11.10–20.10 = 10 gün');
+assert.strictEqual(g.tam, 3.82, 'Katılım Bot ASELS örneği: 3,82 TL');
+/* iki dönem: her gün kendi döneminin GAM'ı */
+g = M.gamHesap({ adet: 10, alimTarih: '2025-06-29', satisTarih: '2025-07-02',
+  gamlar: [{ donem: '2025/2', bas: '2025-07-01', gam: 0.02 }, { donem: '2025/1', bas: '', gam: 0.01 }] }, bugun);
+assert.deepStrictEqual(g.parca.map(p => p.gun), [2, 2], '29-30 Haziran 2025/1, 1-2 Temmuz 2025/2');
+assert.strictEqual(g.tam, 0.6, '(2×0,01 + 2×0,02) × 10 lot');
+/* satış tarihi yoksa bugüne kadar */
+assert.strictEqual(M.gamHesap({ adet: 1, alimTarih: '2026-10-09', gamlar: [{ gam: 1 }] }, bugun).gun, 10);
+assert.strictEqual(M.gamHesap({ adet: 1, alimTarih: '2026-10-09', gamlar: [] }, bugun), null, 'GAM yoksa hesap yok');
+h = M.hisseOzet({ adet: 100, alimTarih: '2025-10-11', satisTarih: '2025-10-20', gamlar: [{ gam: '0,0038120150' }], arOdenen: 1 }, bugun);
+assert.strictEqual(h.yontem, 'gam', 'oran yoksa varsayılan GAM');
+assert.strictEqual(h.arindir, 3.82);
+yakin(h.arKalan, 2.82);
+
 console.log('✓ tüm plan/özet/hedef/yatırım kontrolleri geçti');
