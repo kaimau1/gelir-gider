@@ -298,11 +298,12 @@ const arYon=a=>ARYONTEM[a.arYontem]?a.arYontem:(num(a.arOran)?'kar':'gam');
 function gunNo(s){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));return m?Math.round(Date.UTC(+m[1],+m[2]-1,+m[3])/864e5):null;}
 /* GAM (Günlük Arındırma Miktarı, lot başına TL): TAM = Σ gün × o günün GAM'ı × lot. Alış ve satış günü dahil
    (11.10–20.10 = 10 gün). Dönemler (ör. 2025/2) "geçerli ilk gün"e göre sıralanır; her gün en son başlamış
-   dönemin GAM'ı kullanılır, ilk gün boşsa en baştan geçerlidir. Sonuç, Katılım Bot gibi kuruşa yukarı yuvarlanır. */
+   dönemin GAM'ı kullanılır; en eski dönem her zaman alım gününden başlar. Sonuç, Katılım Bot gibi kuruşa yukarı yuvarlanır. */
 function gamHesap(a,bugun){
   const bas=gunNo(a.alimTarih),son=gunNo(a.satisTarih)??(bugun?Math.round(Date.UTC(bugun.getFullYear(),bugun.getMonth(),bugun.getDate())/864e5):null);
   const L=(Array.isArray(a.gamlar)?a.gamlar:[]).map(g=>({bas:gunNo(g.bas)??-Infinity,gam:gamSayi(g.gam),donem:g.donem||''})).filter(g=>g.gam>0).sort((x,y)=>x.bas-y.bas);
   if(bas==null||son==null||son<bas||!L.length)return null;
+  L[0].bas=-Infinity; /* en eski dönemden önceki GAM bilinmez → en eski GAM alımdan itibaren geçerli (günler kaybolmasın) */
   const parca=[];let top=0;
   for(let i=0;i<L.length;i++){
     const g0=Math.max(bas,L[i].bas),g1=Math.min(son,i+1<L.length?L[i+1].bas-1:son);
@@ -1295,10 +1296,12 @@ function hisseAlanlari(a){
     h+=alan('Satış tarihi (boş = bugün)',`<input type="date" data-vsatis="${a.id}" value="${esc(a.satisTarih||'')}" aria-label="Satış tarihi">`)
       +alan('Ödenen arındırma ₺',`<input class="sag" inputmode="decimal" data-varodenen="${a.id}" value="${f(num(a.arOdenen))}" aria-label="Ödenen arındırma">`)+`</div>`;
     const L=a.gamlar&&a.gamlar.length?a.gamlar:[{donem:'',bas:'',gam:''}];
-    h+=`<div class="not" style="margin:8px 0 4px">GAM (lot başına günlük arındırma, TL) — Katılım Bot'un “Günlük Arındırma (GAM)” satırı. Dönem değişince yeni satır ekle.</div>`
+    const gs='display:grid;grid-template-columns:1fr 1.3fr 1.4fr auto;gap:6px;margin:4px 0';
+    h+=`<div class="not" style="margin:8px 0 4px">GAM (lot başına günlük arındırma, TL) — Katılım Bot'un “Günlük Arındırma (GAM)” satırı. Tek GAM varsa tarih boş kalsın: alımdan satışa kadar tüm günlere uygulanır. Dönem değişirse <b>+ Dönem</b> ile yeni GAM'ı, geçerli olduğu ilk günle ekle.</div>`
+      +`<div style="${gs};margin-bottom:0" class="vkart-alan"><span class="et">Dönem</span><span class="et">Geçerli ilk gün</span><span class="et">GAM ₺</span><span style="width:34px"></span></div>`
       +L.map((g,k)=>`<div style="display:grid;grid-template-columns:1fr 1.3fr 1.4fr auto;gap:6px;margin:4px 0">`
-        +`<input data-vgamdonem="${a.id}:${k}" value="${esc(g.donem||'')}" placeholder="dönem 2025/2" aria-label="Dönem">`
-        +`<input type="date" data-vgambas="${a.id}:${k}" value="${esc(g.bas||'')}" title="Bu GAM'ın geçerli olduğu ilk gün (boş = en baştan)" aria-label="Geçerli ilk gün">`
+        +`<input data-vgamdonem="${a.id}:${k}" value="${esc(g.donem||'')}" placeholder="2025/2" aria-label="Dönem">`
+        +`<input type="date" data-vgambas="${a.id}:${k}" value="${esc(g.bas||'')}" title="Bu GAM'ın geçerli olduğu ilk gün — ilk satırda boş bırak (alımdan itibaren)" aria-label="Geçerli ilk gün">`
         +`<input class="sag" inputmode="decimal" data-vgam="${a.id}:${k}" value="${g.gam?esc(String(g.gam).replace('.',',')):''}" placeholder="0,0038120150" aria-label="GAM">`
         +`<button class="btn kucuk" data-vgamsil="${a.id}:${k}" aria-label="Dönemi sil">×</button></div>`).join('')
       +`<button class="btn kucuk" data-vgamekle="${a.id}" style="margin-top:4px">+ Dönem</button>`;

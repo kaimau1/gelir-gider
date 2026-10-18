@@ -252,6 +252,11 @@ g = M.gamHesap({ adet: 10, alimTarih: '2025-06-29', satisTarih: '2025-07-02',
   gamlar: [{ donem: '2025/2', bas: '2025-07-01', gam: 0.02 }, { donem: '2025/1', bas: '', gam: 0.01 }] }, bugun);
 assert.deepStrictEqual(g.parca.map(p => p.gun), [2, 2], '29-30 Haziran 2025/1, 1-2 Temmuz 2025/2');
 assert.strictEqual(g.tam, 0.6, '(2×0,01 + 2×0,02) × 10 lot');
+/* tek GAM satırına yanlışlıkla geç tarih yazılsa da alımdan itibaren sayılır (01.10–18.10 = 18 gün) */
+g = M.gamHesap({ adet: 204, alimTarih: '2026-10-01', satisTarih: '2026-10-18', gamlar: [{ bas: '2026-10-18', gam: 0.003812015 }] }, bugun);
+assert.strictEqual(g.gun, 18);
+assert.deepStrictEqual(g.parca.map(p => p.gun), [18], 'en eski dönem alımdan başlar');
+assert.strictEqual(g.tam, 14, '0,003812015 × 18 × 204 = 13,9976 → 14,00');
 /* satış tarihi yoksa bugüne kadar */
 assert.strictEqual(M.gamHesap({ adet: 1, alimTarih: '2026-10-09', gamlar: [{ gam: 1 }] }, bugun).gun, 10);
 assert.strictEqual(M.gamHesap({ adet: 1, alimTarih: '2026-10-09', gamlar: [] }, bugun), null, 'GAM yoksa hesap yok');
