@@ -1269,7 +1269,8 @@ function hisseAlanlari(a){
       <div class="vkart-alan"><span class="et">Arındırma yöntemi</span><select data-varyon="${a.id}" aria-label="Arındırma yöntemi">${Object.keys(ARYONTEM).map(k=>`<option value="${k}"${(a.arYontem||'kar')===k?' selected':''}>${ARYONTEM[k]}</option>`).join('')}</select></div>
       <div class="vkart-alan"><span class="et">Alınan temettü ₺ (toplam)</span><input class="sag" inputmode="decimal" data-vtemettu="${a.id}" value="${f(num(a.temettu))}" aria-label="Alınan temettü"></div>
       <div class="vkart-alan"><span class="et">Ödenen arındırma ₺</span><input class="sag" inputmode="decimal" data-varodenen="${a.id}" value="${f(num(a.arOdenen))}" aria-label="Ödenen arındırma"></div>
-    </div><div class="hozet" data-vhisse="${a.id}">${hisseHtml(a)}</div>`;
+    </div><div class="hozet" data-vhisse="${a.id}">${hisseHtml(a)}</div>
+    <a class="btn kucuk" href="https://t.me/KatilimBot" target="_blank" rel="noopener" data-katbot="${esc(a.kod||'')}" style="display:inline-block;margin-top:8px;text-decoration:none">🤖 Arındırma oranını Katılım Bot'ta sor${a.kod?' ('+esc(a.kod)+')':''}</a>`;
 }
 function hisseHtml(a){
   const h=hisseOzet(a,SIMDI),r=n=>TL.format(Math.round(n));
@@ -1728,6 +1729,11 @@ document.addEventListener('click',e=>{
   else if(ds.kalan)modalKalanAc(ds.kalan);
   else if(ds.vsil){if(confirm('Bu varlık silinsin mi?')){D.assets=D.assets.filter(a=>a.id!==ds.vsil);kaydet();tazele();}}
   else if(t.classList&&t.classList.contains('sekme'))sekmeAc(t.dataset.hedef);
+});
+/* Katılım Bot (Telegram): hisse kodunu panoya kopyala, bağlantı Telegram'ı açar; oranı karta elle yazarsın */
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('[data-katbot]');if(!t||!t.dataset.katbot)return;
+  try{navigator.clipboard.writeText(t.dataset.katbot).then(()=>toast(t.dataset.katbot+' panoya kopyalandı — Katılım Bot\'a yapıştır, çıkan oranı “Arındırma oranı %”ya yaz'),()=>{});}catch(x){}
 });
 document.addEventListener('change',e=>{
   const t=e.target,ds=t.dataset;
